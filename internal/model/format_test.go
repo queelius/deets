@@ -1021,3 +1021,217 @@ func TestFormatDescJSON_KeyOrder(t *testing.T) {
 		t.Error("FormatDescJSON should preserve field order")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// FieldsToDB
+// ---------------------------------------------------------------------------
+
+func TestFieldsToDB_GroupsByCategory(t *testing.T) {
+	fields := []Field{
+		{Key: "name", Value: "Alex", Category: "identity"},
+		{Key: "github", Value: "queelius", Category: "web"},
+		{Key: "email", Value: "alex@test.com", Category: "identity"},
+	}
+
+	db := FieldsToDB(fields)
+	if len(db.Categories) != 2 {
+		t.Fatalf("expected 2 categories, got %d", len(db.Categories))
+	}
+	if db.Categories[0].Name != "identity" {
+		t.Errorf("expected first category 'identity', got %q", db.Categories[0].Name)
+	}
+	if db.Categories[1].Name != "web" {
+		t.Errorf("expected second category 'web', got %q", db.Categories[1].Name)
+	}
+	if len(db.Categories[0].Fields) != 2 {
+		t.Errorf("expected 2 fields in identity, got %d", len(db.Categories[0].Fields))
+	}
+}
+
+func TestFieldsToDB_Empty(t *testing.T) {
+	db := FieldsToDB(nil)
+	if len(db.Categories) != 0 {
+		t.Errorf("expected 0 categories for nil input, got %d", len(db.Categories))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// FormatTableWithDesc
+// ---------------------------------------------------------------------------
+
+func TestFormatTableWithDesc_MultiCat(t *testing.T) {
+	fields := []Field{
+		{Key: "name", Value: "Alexander", Desc: "Full name", Category: "identity"},
+		{Key: "github", Value: "queelius", Desc: "GitHub username", Category: "web"},
+	}
+
+	out := FormatTableWithDesc(fields)
+	if !strings.Contains(out, "Category") {
+		t.Error("expected Category column")
+	}
+	if !strings.Contains(out, "Description") {
+		t.Error("expected Description column")
+	}
+	if !strings.Contains(out, "Full name") {
+		t.Error("expected 'Full name' in output")
+	}
+	if !strings.Contains(out, "GitHub username") {
+		t.Error("expected 'GitHub username' in output")
+	}
+}
+
+func TestFormatTableWithDesc_SingleCat(t *testing.T) {
+	fields := []Field{
+		{Key: "name", Value: "Alexander", Desc: "Full name", Category: "identity"},
+		{Key: "email", Value: "a@b.com", Desc: "Email address", Category: "identity"},
+	}
+
+	out := FormatTableWithDesc(fields)
+	if strings.Contains(out, "Category") {
+		t.Error("single-cat table should not have Category column")
+	}
+	if !strings.Contains(out, "Description") {
+		t.Error("expected Description column")
+	}
+}
+
+func TestFormatTableWithDesc_Empty(t *testing.T) {
+	out := FormatTableWithDesc(nil)
+	if out != "" {
+		t.Errorf("expected empty string for nil, got %q", out)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// FormatFieldsJSONWithDesc
+// ---------------------------------------------------------------------------
+
+func TestFormatFieldsJSONWithDesc_SingleCat(t *testing.T) {
+	fields := []Field{
+		{Key: "name", Value: "Alexander", Desc: "Full name", Category: "identity"},
+	}
+
+	out, err := FormatFieldsJSONWithDesc(fields)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var parsed map[string]map[string]interface{}
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	nameEntry, ok := parsed["name"]
+	if !ok {
+		t.Fatal("expected 'name' key")
+	}
+	if nameEntry["value"] != "Alexander" {
+		t.Errorf("unexpected value: %v", nameEntry["value"])
+	}
+	if nameEntry["description"] != "Full name" {
+		t.Errorf("unexpected description: %v", nameEntry["description"])
+	}
+}
+
+func TestFormatFieldsJSONWithDesc_MultiCat(t *testing.T) {
+	fields := []Field{
+		{Key: "name", Value: "Alexander", Desc: "Full name", Category: "identity"},
+		{Key: "github", Value: "queelius", Desc: "GitHub", Category: "web"},
+	}
+
+	out, err := FormatFieldsJSONWithDesc(fields)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var parsed map[string]map[string]map[string]interface{}
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	if _, ok := parsed["identity"]["name"]; !ok {
+		t.Error("expected identity.name in grouped output")
+	}
+	if _, ok := parsed["web"]["github"]; !ok {
+		t.Error("expected web.github in grouped output")
+	}
+}
+
+func TestFormatFieldsJSONWithDesc_Empty(t *testing.T) {
+	out, err := FormatFieldsJSONWithDesc(nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.TrimSpace(out) != "{}" {
+		t.Errorf("expected empty JSON object, got %q", out)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// FormatValueTOML
+// ---------------------------------------------------------------------------
+
+func TestFormatValueTOML_String(t *testing.T) {
+	got := FormatValueTOML("hello")
+	if got != `"hello"` {
+		t.Errorf("expected quoted string, got %q", got)
+	}
+}
+
+func TestFormatValueTOML_Int(t *testing.T) {
+	got := FormatValueTOML(int64(42))
+	if got != "42" {
+		t.Errorf("expected '42', got %q", got)
+	}
+}
+
+func TestFormatValueTOML_Array(t *testing.T) {
+	got := FormatValueTOML([]interface{}{"a", "b"})
+	if got != `["a", "b"]` {
+		t.Errorf("expected array, got %q", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Diff formatters
+// ---------------------------------------------------------------------------
+
+func TestFormatDiffTable(t *testing.T) {
+	entries := []DiffEntry{
+		{Path: "identity.name", Status: "override", GlobalVal: "Global", LocalVal: "Local"},
+		{Path: "custom.key", Status: "local-only", LocalVal: "value"},
+	}
+	out := FormatDiffTable(entries)
+	if !strings.Contains(out, "Path") {
+		t.Error("expected Path header")
+	}
+	if !strings.Contains(out, "override") {
+		t.Error("expected 'override' status")
+	}
+	if !strings.Contains(out, "local-only") {
+		t.Error("expected 'local-only' status")
+	}
+}
+
+func TestFormatDiffTable_Empty(t *testing.T) {
+	out := FormatDiffTable(nil)
+	if out != "" {
+		t.Errorf("expected empty string, got %q", out)
+	}
+}
+
+func TestFormatDiffJSON(t *testing.T) {
+	entries := []DiffEntry{
+		{Path: "identity.name", Status: "override", GlobalVal: "Old", LocalVal: "New"},
+	}
+	out, err := FormatDiffJSON(entries)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !json.Valid([]byte(out)) {
+		t.Error("expected valid JSON")
+	}
+	if !strings.Contains(out, "override") {
+		t.Error("expected 'override' in JSON output")
+	}
+}

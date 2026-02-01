@@ -1,12 +1,16 @@
 package commands
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
+
+//go:embed skill.md
+var skillContent string
 
 var flagClaudeGlobal bool
 
@@ -45,7 +49,9 @@ Use --local to install to .claude/skills/deets.md in the current project.`,
 			return fmt.Errorf("writing %s: %w", path, err)
 		}
 
-		fmt.Printf("Installed deets skill to %s\n", path)
+		if !flagQuiet {
+			fmt.Printf("Installed deets skill to %s\n", path)
+		}
 		return nil
 	},
 }
@@ -60,7 +66,9 @@ var claudeUninstallCmd = &cobra.Command{
 		}
 
 		if _, err := os.Stat(path); os.IsNotExist(err) {
-			fmt.Printf("No skill file at %s\n", path)
+			if !flagQuiet {
+				fmt.Printf("No skill file at %s\n", path)
+			}
 			return nil
 		}
 
@@ -68,7 +76,9 @@ var claudeUninstallCmd = &cobra.Command{
 			return fmt.Errorf("removing %s: %w", path, err)
 		}
 
-		fmt.Printf("Removed deets skill from %s\n", path)
+		if !flagQuiet {
+			fmt.Printf("Removed deets skill from %s\n", path)
+		}
 		return nil
 	},
 }
@@ -88,64 +98,3 @@ func skillPath() (string, error) {
 	}
 	return filepath.Join(home, ".claude", "skills", "deets.md"), nil
 }
-
-const skillContent = `---
-name: deets
-description: >
-  Use when you need personal metadata about the user — name, email, ORCID,
-  GitHub username, affiliations, or any other personal details. Also use when
-  populating author fields, git identity, paper metadata, profile info, or
-  personalized content.
----
-
-# deets — Personal Metadata CLI
-
-A TOML-backed personal metadata store. Query it for user identity and profile data.
-
-## Quick Reference
-
-` + "```" + `bash
-# Single value (great for scripts and $(...) substitution)
-deets get identity.name
-deets get web.github
-deets get contact.email
-
-# Category (all fields)
-deets get academic
-
-# Cross-category search
-deets get *.orcid
-
-# Structured output
-deets show --json         # full JSON dump
-deets show identity       # single category table
-
-# Search across everything
-deets search "towell"
-
-# Understand field meanings
-deets describe academic.orcid
-
-# Check configuration
-deets which --json        # paths and merge status
-
-# Export for scripts
-deets export --env        # DEETS_IDENTITY_NAME="..." format
-deets export --json       # full JSON
-` + "```" + `
-
-## When to Use
-
-- **Author fields**: ` + "`" + `deets get identity.name` + "`" + `, ` + "`" + `deets get contact.email` + "`" + `
-- **Git identity**: ` + "`" + `deets get identity.name` + "`" + `, ` + "`" + `deets get contact.email` + "`" + `
-- **Academic papers**: ` + "`" + `deets get academic.orcid` + "`" + `, ` + "`" + `deets get academic.institution` + "`" + `
-- **Profile/bio**: ` + "`" + `deets show --json` + "`" + ` for bulk data
-- **Social links**: ` + "`" + `deets get web.github` + "`" + `, ` + "`" + `deets get web.blog` + "`" + `
-
-## Output Conventions
-
-- Single ` + "`" + `get` + "`" + `: bare value, no decoration (pipe-friendly)
-- Multiple matches: table on TTY, JSON when piped
-- ` + "`" + `--json` + "`" + ` flag forces JSON on any read command
-- Exit code 2 = key not found
-`

@@ -23,13 +23,14 @@ var categoriesCmd = &cobra.Command{
 
 		names := db.CategoryNames()
 
-		if flagJSON || !isTTY() {
+		switch resolveFormat() {
+		case "json":
 			data, err := json.MarshalIndent(names, "", "  ")
 			if err != nil {
 				return err
 			}
 			fmt.Println(string(data))
-		} else {
+		default: // table
 			for _, name := range names {
 				fmt.Println(name)
 			}

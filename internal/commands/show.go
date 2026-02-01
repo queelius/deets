@@ -7,10 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var flagTOML bool
-
 func init() {
-	showCmd.Flags().BoolVar(&flagTOML, "toml", false, "output as raw TOML")
 	rootCmd.AddCommand(showCmd)
 }
 
@@ -20,10 +17,11 @@ var showCmd = &cobra.Command{
 	Long: `Display all metadata, or a single category.
 
 Examples:
-  deets show              # all categories as table
-  deets show identity     # single category
-  deets show --json       # full JSON dump
-  deets show --toml       # raw merged TOML`,
+  deets show                    # all categories as table
+  deets show identity           # single category
+  deets show --format json      # full JSON dump
+  deets show --format toml      # raw merged TOML
+  deets show --format yaml      # YAML output`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		db, err := loadDB()
@@ -31,11 +29,7 @@ Examples:
 			return err
 		}
 
-		// --toml flag
-		if flagTOML {
-			fmt.Print(model.FormatTOML(db))
-			return nil
-		}
+		format := resolveFormat()
 
 		// Single category
 		if len(args) == 1 {
@@ -44,13 +38,23 @@ Examples:
 				return fmt.Errorf("category not found: %s", args[0])
 			}
 
-			if flagJSON || !isTTY() {
+			switch format {
+			case "json":
 				out, err := model.FormatCategoryJSON(cat)
 				if err != nil {
 					return err
 				}
 				fmt.Println(out)
-			} else {
+			case "toml":
+				catDB := &model.DB{Categories: []model.Category{cat}}
+				fmt.Print(model.FormatTOML(catDB))
+			case "yaml":
+				catDB := &model.DB{Categories: []model.Category{cat}}
+				fmt.Print(model.FormatYAML(catDB))
+			case "env":
+				catDB := &model.DB{Categories: []model.Category{cat}}
+				fmt.Print(model.FormatEnv(catDB))
+			default: // table
 				fields := make([]model.Field, 0, len(cat.Fields))
 				for _, f := range cat.Fields {
 					if !model.IsDescKey(f.Key) {
@@ -63,13 +67,20 @@ Examples:
 		}
 
 		// All categories
-		if flagJSON || !isTTY() {
+		switch format {
+		case "json":
 			out, err := model.FormatJSON(db)
 			if err != nil {
 				return err
 			}
 			fmt.Println(out)
-		} else {
+		case "toml":
+			fmt.Print(model.FormatTOML(db))
+		case "yaml":
+			fmt.Print(model.FormatYAML(db))
+		case "env":
+			fmt.Print(model.FormatEnv(db))
+		default: // table
 			fmt.Print(model.FormatTable(db.AllFields()))
 		}
 		return nil

@@ -40,8 +40,10 @@ func initGlobal() error {
 		return fmt.Errorf("writing %s: %w", path, err)
 	}
 
-	fmt.Printf("Created %s\n", path)
-	fmt.Println("Edit it to add your personal details.")
+	if !flagQuiet {
+		fmt.Printf("Created %s\n", path)
+		fmt.Println("Edit it to add your personal details.")
+	}
 	return nil
 }
 
@@ -64,6 +66,8 @@ func initLocal() error {
 		return fmt.Errorf("writing %s: %w", path, err)
 	}
 
-	fmt.Printf("Created %s\n", path)
+	if !flagQuiet {
+		fmt.Printf("Created %s\n", path)
+	}
 	return nil
 }

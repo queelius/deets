@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/queelius/deets/internal/model"
@@ -48,8 +47,7 @@ Examples:
 				// Single field description
 				desc := db.DescribeField(path)
 				if desc == "" {
-					fmt.Fprintf(os.Stderr, "no description for: %s\n", path)
-					os.Exit(2)
+					return &ExitError{Code: 2, Message: fmt.Sprintf("no description for: %s", path)}
 				}
 				fmt.Println(desc)
 				return nil
@@ -59,17 +57,17 @@ Examples:
 		}
 
 		if len(fields) == 0 {
-			fmt.Fprintln(os.Stderr, "no descriptions found")
-			os.Exit(2)
+			return &ExitError{Code: 2, Message: "no descriptions found"}
 		}
 
-		if flagJSON || !isTTY() {
+		switch resolveFormat() {
+		case "json":
 			out, err := model.FormatDescJSON(fields)
 			if err != nil {
 				return err
 			}
 			fmt.Println(out)
-		} else {
+		default: // table (and other formats fall through to table for descriptions)
 			fmt.Print(model.FormatDescTable(fields))
 		}
 		return nil
@@ -77,9 +75,9 @@ Examples:
 }
 
 func setDescription(path, desc string) error {
-	parts := strings.SplitN(path, ".", 2)
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return fmt.Errorf("invalid path %q: expected category.key", path)
+	cat, key, err := parsePath(path)
+	if err != nil {
+		return err
 	}
 
 	filePath, err := targetFile()
@@ -87,5 +85,5 @@ func setDescription(path, desc string) error {
 		return err
 	}
 
-	return store.SetValue(filePath, parts[0], parts[1]+"_desc", desc)
+	return store.SetValue(filePath, cat, key+"_desc", desc)
 }

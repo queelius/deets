@@ -17,58 +17,7 @@ import (
 //	identity    aka       Alex Towell
 //	web         github    queelius
 func FormatTable(fields []Field) string {
-	if len(fields) == 0 {
-		return ""
-	}
-
-	// Determine whether we need the category column.
-	multiCat := hasMultipleCategories(fields)
-
-	// Compute column widths.
-	catWidth := len("Category")
-	keyWidth := len("Key")
-	valWidth := len("Value")
-
-	for _, f := range fields {
-		if multiCat && len(f.Category) > catWidth {
-			catWidth = len(f.Category)
-		}
-		if len(f.Key) > keyWidth {
-			keyWidth = len(f.Key)
-		}
-		v := FormatValue(f.Value)
-		if len(v) > valWidth {
-			valWidth = len(v)
-		}
-	}
-
-	var b strings.Builder
-
-	if multiCat {
-		// Header
-		fmt.Fprintf(&b, "%-*s    %-*s    %s\n", catWidth, "Category", keyWidth, "Key", "Value")
-		// Separator using Unicode box-drawing dash
-		fmt.Fprintf(&b, "%-*s    %-*s    %s\n",
-			catWidth, repeatRune('\u2500', catWidth),
-			keyWidth, repeatRune('\u2500', keyWidth),
-			repeatRune('\u2500', valWidth))
-		// Rows
-		for _, f := range fields {
-			fmt.Fprintf(&b, "%-*s    %-*s    %s\n", catWidth, f.Category, keyWidth, f.Key, FormatValue(f.Value))
-		}
-	} else {
-		// Header (no category column)
-		fmt.Fprintf(&b, "%-*s    %s\n", keyWidth, "Key", "Value")
-		fmt.Fprintf(&b, "%-*s    %s\n",
-			keyWidth, repeatRune('\u2500', keyWidth),
-			repeatRune('\u2500', valWidth))
-		// Rows
-		for _, f := range fields {
-			fmt.Fprintf(&b, "%-*s    %s\n", keyWidth, f.Key, FormatValue(f.Value))
-		}
-	}
-
-	return b.String()
+	return renderTable(fields, false)
 }
 
 // FormatJSON serializes the entire DB as a JSON object grouped by category.
@@ -261,6 +210,107 @@ func FormatDescJSON(fields []Field) (string, error) {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
+// renderTable is the shared implementation for FormatTable and FormatTableWithDesc.
+// When includeDesc is true, a Description column is appended.
+func renderTable(fields []Field, includeDesc bool) string {
+	if len(fields) == 0 {
+		return ""
+	}
+
+	multiCat := hasMultipleCategories(fields)
+
+	catWidth := len("Category")
+	keyWidth := len("Key")
+	valWidth := len("Value")
+	descWidth := len("Description")
+
+	for _, f := range fields {
+		if multiCat && len(f.Category) > catWidth {
+			catWidth = len(f.Category)
+		}
+		if len(f.Key) > keyWidth {
+			keyWidth = len(f.Key)
+		}
+		v := FormatValue(f.Value)
+		if len(v) > valWidth {
+			valWidth = len(v)
+		}
+		if includeDesc && len(f.Desc) > descWidth {
+			descWidth = len(f.Desc)
+		}
+	}
+
+	var b strings.Builder
+
+	// Build header and separator dynamically based on columns.
+	type col struct {
+		header string
+		width  int
+	}
+	var cols []col
+	if multiCat {
+		cols = append(cols, col{"Category", catWidth})
+	}
+	cols = append(cols, col{"Key", keyWidth})
+	cols = append(cols, col{"Value", valWidth})
+	if includeDesc {
+		cols = append(cols, col{"Description", descWidth})
+	}
+
+	// Header
+	for i, c := range cols {
+		if i > 0 {
+			b.WriteString("    ")
+		}
+		if i < len(cols)-1 {
+			fmt.Fprintf(&b, "%-*s", c.width, c.header)
+		} else {
+			b.WriteString(c.header)
+		}
+	}
+	b.WriteString("\n")
+
+	// Separator
+	for i, c := range cols {
+		if i > 0 {
+			b.WriteString("    ")
+		}
+		if i < len(cols)-1 {
+			fmt.Fprintf(&b, "%-*s", c.width, repeatRune('\u2500', c.width))
+		} else {
+			b.WriteString(repeatRune('\u2500', c.width))
+		}
+	}
+	b.WriteString("\n")
+
+	// Rows
+	for _, f := range fields {
+		var vals []string
+		if multiCat {
+			vals = append(vals, f.Category)
+		}
+		vals = append(vals, f.Key)
+		vals = append(vals, FormatValue(f.Value))
+		if includeDesc {
+			vals = append(vals, f.Desc)
+		}
+
+		for i, v := range vals {
+			if i > 0 {
+				b.WriteString("    ")
+			}
+			if i < len(cols)-1 {
+				fmt.Fprintf(&b, "%-*s", cols[i].width, v)
+			} else {
+				b.WriteString(v)
+			}
+		}
+		b.WriteString("\n")
+	}
+
+	return b.String()
+}
+
 // hasMultipleCategories reports whether the fields span more than one category.
 func hasMultipleCategories(fields []Field) bool {
 	if len(fields) == 0 {
@@ -423,6 +473,178 @@ func yamlValue(v interface{}) string {
 	default:
 		return fmt.Sprintf("%v", v)
 	}
+}
+
+// FieldsToDB reconstructs a *DB from a flat slice of fields by grouping
+// them into categories. The category order matches the order fields appear
+// in the input slice.
+func FieldsToDB(fields []Field) *DB {
+	db := &DB{}
+	catIndex := make(map[string]int)
+
+	for _, f := range fields {
+		idx, exists := catIndex[f.Category]
+		if !exists {
+			idx = len(db.Categories)
+			catIndex[f.Category] = idx
+			db.Categories = append(db.Categories, Category{Name: f.Category})
+		}
+		db.Categories[idx].Fields = append(db.Categories[idx].Fields, f)
+	}
+	return db
+}
+
+// FormatTableWithDesc renders a 4-column table: Category, Key, Value, Description.
+// If all fields share the same category, the Category column is omitted.
+func FormatTableWithDesc(fields []Field) string {
+	return renderTable(fields, true)
+}
+
+// FormatFieldsJSONWithDesc serializes fields as JSON objects including
+// a "description" key alongside the value. Each field becomes:
+//
+//	{"value": ..., "description": "..."}
+//
+// If all fields share the same category, a flat object is produced.
+// If fields span multiple categories, they are grouped by category name.
+func FormatFieldsJSONWithDesc(fields []Field) (string, error) {
+	if len(fields) == 0 {
+		data, err := json.MarshalIndent(map[string]interface{}{}, "", "  ")
+		if err != nil {
+			return "", fmt.Errorf("marshal empty fields to JSON: %w", err)
+		}
+		return string(data), nil
+	}
+
+	buildFieldMapWithDesc := func(fields []Field) orderedMap {
+		om := orderedMap{values: make(map[string]interface{})}
+		for _, f := range fields {
+			if IsDescKey(f.Key) {
+				continue
+			}
+			om.keys = append(om.keys, f.Key)
+			om.values[f.Key] = map[string]interface{}{
+				"value":       f.Value,
+				"description": f.Desc,
+			}
+		}
+		return om
+	}
+
+	if !hasMultipleCategories(fields) {
+		obj := buildFieldMapWithDesc(fields)
+		data, err := json.MarshalIndent(obj, "", "  ")
+		if err != nil {
+			return "", fmt.Errorf("marshal fields to JSON: %w", err)
+		}
+		return string(data), nil
+	}
+
+	// Group by category, preserving order.
+	om := orderedMap{values: make(map[string]interface{})}
+	seen := make(map[string]bool)
+	catFields := make(map[string][]Field)
+
+	for _, f := range fields {
+		if !seen[f.Category] {
+			seen[f.Category] = true
+			om.keys = append(om.keys, f.Category)
+		}
+		catFields[f.Category] = append(catFields[f.Category], f)
+	}
+	for _, catName := range om.keys {
+		om.values[catName] = buildFieldMapWithDesc(catFields[catName])
+	}
+
+	data, err := json.MarshalIndent(om, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("marshal grouped fields to JSON: %w", err)
+	}
+	return string(data), nil
+}
+
+// FormatValueTOML formats a Go value as a TOML value literal.
+// This is the exported version of the internal tomlValue function,
+// used by commands like import that need to format values for store.SetValue().
+func FormatValueTOML(v interface{}) string {
+	return tomlValue(v)
+}
+
+// ---------------------------------------------------------------------------
+// Diff formatting
+// ---------------------------------------------------------------------------
+
+// DiffEntry represents a single difference between global and local DBs.
+type DiffEntry struct {
+	Path      string // "category.key"
+	Status    string // "override" or "local-only"
+	GlobalVal string // formatted global value (empty for local-only)
+	LocalVal  string // formatted local value
+}
+
+// FormatDiffTable renders a diff table.
+func FormatDiffTable(entries []DiffEntry) string {
+	if len(entries) == 0 {
+		return ""
+	}
+
+	pathWidth := len("Path")
+	statusWidth := len("Status")
+	globalWidth := len("Global")
+	localWidth := len("Local")
+
+	for _, e := range entries {
+		if len(e.Path) > pathWidth {
+			pathWidth = len(e.Path)
+		}
+		if len(e.Status) > statusWidth {
+			statusWidth = len(e.Status)
+		}
+		if len(e.GlobalVal) > globalWidth {
+			globalWidth = len(e.GlobalVal)
+		}
+		if len(e.LocalVal) > localWidth {
+			localWidth = len(e.LocalVal)
+		}
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "%-*s    %-*s    %-*s    %s\n", pathWidth, "Path", statusWidth, "Status", globalWidth, "Global", "Local")
+	fmt.Fprintf(&b, "%-*s    %-*s    %-*s    %s\n",
+		pathWidth, repeatRune('\u2500', pathWidth),
+		statusWidth, repeatRune('\u2500', statusWidth),
+		globalWidth, repeatRune('\u2500', globalWidth),
+		repeatRune('\u2500', localWidth))
+	for _, e := range entries {
+		fmt.Fprintf(&b, "%-*s    %-*s    %-*s    %s\n", pathWidth, e.Path, statusWidth, e.Status, globalWidth, e.GlobalVal, e.LocalVal)
+	}
+	return b.String()
+}
+
+// FormatDiffJSON serializes diff entries as a JSON array.
+func FormatDiffJSON(entries []DiffEntry) (string, error) {
+	type jsonEntry struct {
+		Path      string `json:"path"`
+		Status    string `json:"status"`
+		GlobalVal string `json:"global_value,omitempty"`
+		LocalVal  string `json:"local_value"`
+	}
+
+	items := make([]jsonEntry, len(entries))
+	for i, e := range entries {
+		items[i] = jsonEntry{
+			Path:      e.Path,
+			Status:    e.Status,
+			GlobalVal: e.GlobalVal,
+			LocalVal:  e.LocalVal,
+		}
+	}
+
+	data, err := json.MarshalIndent(items, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("marshal diff to JSON: %w", err)
+	}
+	return string(data), nil
 }
 
 // yamlNeedsQuoting reports whether a YAML string value requires quoting

@@ -23,35 +23,35 @@ var whichCmd = &cobra.Command{
 			return err
 		}
 
-		if flagJSON {
+		switch resolveFormat() {
+		case "json":
 			data, err := json.MarshalIndent(map[string]interface{}{
-				"global_dir":  paths.GlobalDir,
-				"global_file": paths.GlobalFile,
-				"local_dir":   paths.LocalDir,
-				"local_file":  paths.LocalFile,
-				"has_local":   paths.HasLocal,
+				"global_dir":    paths.GlobalDir,
+				"global_file":   paths.GlobalFile,
+				"local_dir":     paths.LocalDir,
+				"local_file":    paths.LocalFile,
+				"has_local":     paths.HasLocal,
 				"global_exists": fileExists(paths.GlobalFile),
 			}, "", "  ")
 			if err != nil {
 				return err
 			}
 			fmt.Println(string(data))
-			return nil
-		}
+		default: // table
+			fmt.Printf("Global: %s", paths.GlobalFile)
+			if fileExists(paths.GlobalFile) {
+				fmt.Println(" (exists)")
+			} else {
+				fmt.Println(" (not found)")
+			}
 
-		fmt.Printf("Global: %s", paths.GlobalFile)
-		if fileExists(paths.GlobalFile) {
-			fmt.Println(" (exists)")
-		} else {
-			fmt.Println(" (not found)")
-		}
-
-		if paths.HasLocal {
-			fmt.Printf("Local:  %s (active override)\n", paths.LocalFile)
-		} else if paths.LocalDir != "" {
-			fmt.Printf("Local:  %s (dir exists, no me.toml)\n", paths.LocalDir)
-		} else {
-			fmt.Println("Local:  none")
+			if paths.HasLocal {
+				fmt.Printf("Local:  %s (active override)\n", paths.LocalFile)
+			} else if paths.LocalDir != "" {
+				fmt.Printf("Local:  %s (dir exists, no me.toml)\n", paths.LocalDir)
+			} else {
+				fmt.Println("Local:  none")
+			}
 		}
 
 		return nil

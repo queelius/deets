@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/queelius/deets/internal/model"
 	"github.com/spf13/cobra"
@@ -24,17 +23,26 @@ var searchCmd = &cobra.Command{
 
 		fields := db.Search(args[0])
 		if len(fields) == 0 {
-			fmt.Fprintf(os.Stderr, "no matches for: %s\n", args[0])
-			os.Exit(2)
+			return &ExitError{Code: 2, Message: fmt.Sprintf("no matches for: %s", args[0])}
 		}
 
-		if flagJSON || !isTTY() {
+		switch resolveFormat() {
+		case "json":
 			out, err := model.FormatFieldsJSON(fields)
 			if err != nil {
 				return err
 			}
 			fmt.Println(out)
-		} else {
+		case "toml":
+			db := model.FieldsToDB(fields)
+			fmt.Print(model.FormatTOML(db))
+		case "yaml":
+			db := model.FieldsToDB(fields)
+			fmt.Print(model.FormatYAML(db))
+		case "env":
+			db := model.FieldsToDB(fields)
+			fmt.Print(model.FormatEnv(db))
+		default: // table
 			fmt.Print(model.FormatTable(fields))
 		}
 		return nil

@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/queelius/deets/internal/store"
@@ -29,11 +28,11 @@ Examples:
 		}
 
 		if strings.Contains(path, ".") {
-			parts := strings.SplitN(path, ".", 2)
-			if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-				return fmt.Errorf("invalid path %q: expected category.key", path)
+			cat, key, err := parsePath(path)
+			if err != nil {
+				return err
 			}
-			return store.RemoveValue(filePath, parts[0], parts[1])
+			return store.RemoveValue(filePath, cat, key)
 		}
 
 		return store.RemoveCategory(filePath, path)

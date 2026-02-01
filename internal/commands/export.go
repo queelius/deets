@@ -7,16 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	flagExportEnv  bool
-	flagExportTOML bool
-	flagExportYAML bool
-)
-
 func init() {
-	exportCmd.Flags().BoolVar(&flagExportEnv, "env", false, "export as environment variables")
-	exportCmd.Flags().BoolVar(&flagExportTOML, "toml", false, "export as TOML")
-	exportCmd.Flags().BoolVar(&flagExportYAML, "yaml", false, "export as YAML")
 	rootCmd.AddCommand(exportCmd)
 }
 
@@ -26,10 +17,10 @@ var exportCmd = &cobra.Command{
 	Long: `Export all metadata in a specific format.
 
 Examples:
-  deets export --json    # JSON
-  deets export --env     # DEETS_IDENTITY_NAME="..." format
-  deets export --toml    # raw merged TOML
-  deets export --yaml    # YAML`,
+  deets export --format json    # JSON (default)
+  deets export --format env     # DEETS_IDENTITY_NAME="..." format
+  deets export --format toml    # raw merged TOML
+  deets export --format yaml    # YAML`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		db, err := loadDB()
@@ -37,21 +28,21 @@ Examples:
 			return err
 		}
 
-		switch {
-		case flagExportEnv:
+		// Export defaults to JSON when resolveFormat() returns "table",
+		// since export is inherently structured output.
+		format := resolveFormat()
+		if format == "table" {
+			format = "json"
+		}
+
+		switch format {
+		case "env":
 			fmt.Print(model.FormatEnv(db))
-		case flagExportTOML:
+		case "toml":
 			fmt.Print(model.FormatTOML(db))
-		case flagExportYAML:
+		case "yaml":
 			fmt.Print(model.FormatYAML(db))
-		case flagJSON:
-			out, err := model.FormatJSON(db)
-			if err != nil {
-				return err
-			}
-			fmt.Println(out)
-		default:
-			// Default to JSON
+		default: // json
 			out, err := model.FormatJSON(db)
 			if err != nil {
 				return err
