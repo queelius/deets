@@ -29,7 +29,7 @@ func TestDefaultTemplate_IsValidTOML(t *testing.T) {
 	}
 
 	// Verify expected sections exist in the stripped template.
-	expectedSections := []string{"identity", "contact", "web", "academic"}
+	expectedSections := []string{"identity", "contact", "web", "academic", "education"}
 	for _, section := range expectedSections {
 		if _, ok := raw[section]; !ok {
 			t.Errorf("expected section %q in DefaultTemplate", section)
@@ -44,7 +44,7 @@ func TestDefaultTemplate_IsNotEmpty(t *testing.T) {
 }
 
 func TestDefaultTemplate_ContainsExpectedSections(t *testing.T) {
-	expectedSections := []string{"[identity]", "[contact]", "[web]", "[academic]"}
+	expectedSections := []string{"[identity]", "[contact]", "[web]", "[academic]", "[education]"}
 	for _, section := range expectedSections {
 		if !strings.Contains(DefaultTemplate, section) {
 			t.Errorf("DefaultTemplate should contain %q", section)
@@ -76,7 +76,7 @@ func TestLocalTemplate_ContainsOverrideInstruction(t *testing.T) {
 // --- DefaultDescriptions tests ---
 
 func TestDefaultDescriptions_HasExpectedCategories(t *testing.T) {
-	expectedCategories := []string{"identity", "contact", "web", "academic"}
+	expectedCategories := []string{"identity", "contact", "web", "academic", "education"}
 	for _, cat := range expectedCategories {
 		if _, ok := DefaultDescriptions[cat]; !ok {
 			t.Errorf("DefaultDescriptions should have category %q", cat)
@@ -106,6 +106,9 @@ func TestDefaultDescriptions_HasExpectedKeys(t *testing.T) {
 		{"academic", "title"},
 		{"academic", "research_interests"},
 		{"academic", "scholar"},
+		{"education", "degrees"},
+		{"education", "field"},
+		{"education", "institution"},
 	}
 
 	for _, tc := range tests {
@@ -192,7 +195,24 @@ func TestDefaultDescriptions_AcademicCategoryContents(t *testing.T) {
 	if academic["institution"] != "Academic institution" {
 		t.Errorf("expected academic.institution = 'Academic institution', got %q", academic["institution"])
 	}
-	if academic["scholar"] != "Google Scholar profile URL" {
-		t.Errorf("expected academic.scholar = 'Google Scholar profile URL', got %q", academic["scholar"])
+	if academic["scholar"] != "Google Scholar ID" {
+		t.Errorf("expected academic.scholar = 'Google Scholar ID', got %q", academic["scholar"])
+	}
+}
+
+func TestDefaultDescriptions_EducationCategoryContents(t *testing.T) {
+	education, ok := DefaultDescriptions["education"]
+	if !ok {
+		t.Fatal("missing 'education' in DefaultDescriptions")
+	}
+
+	if education["degrees"] != "Completed degrees with institution and year" {
+		t.Errorf("expected education.degrees = 'Completed degrees with institution and year', got %q", education["degrees"])
+	}
+	if education["field"] != "Primary field of study" {
+		t.Errorf("expected education.field = 'Primary field of study', got %q", education["field"])
+	}
+	if education["institution"] != "Degree-granting institution" {
+		t.Errorf("expected education.institution = 'Degree-granting institution', got %q", education["institution"])
 	}
 }

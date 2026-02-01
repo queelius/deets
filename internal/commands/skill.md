@@ -2,14 +2,15 @@
 name: deets
 description: >
   Use when you need personal metadata about the user — name, email, ORCID,
-  GitHub username, affiliations, or any other personal details. Also use when
-  populating author fields, git identity, paper metadata, profile info, or
-  personalized content.
+  GitHub username, affiliations, education, or any other personal details. Also
+  use when populating author fields, git identity, paper metadata, profile info,
+  or personalized content.
 ---
 
 # deets — Personal Metadata CLI
 
 A TOML-backed personal metadata store. Query it for user identity and profile data.
+Categories are user-defined — any `[category]` with any `key = "value"` is valid.
 
 ## Quick Reference
 
@@ -27,6 +28,7 @@ deets get web.mastodon --exists && echo "has mastodon"
 
 # Category (all fields)
 deets get academic
+deets get education
 
 # Cross-category search
 deets get *.orcid
@@ -43,6 +45,10 @@ deets show --format yaml      # YAML output
 deets keys                    # one per line
 deets keys --format json      # JSON array
 
+# List category names
+deets categories              # one per line
+deets categories --format json
+
 # Inspect field types and metadata
 deets schema --format json    # category, key, type, description, example
 
@@ -51,9 +57,14 @@ deets search "towell"
 
 # Understand field meanings
 deets describe academic.orcid
+deets describe education.degrees
 
 # Check configuration
 deets which --format json     # paths and merge status
+
+# Open metadata file in $EDITOR
+deets edit                    # edit global ~/.deets/me.toml
+deets edit --local            # edit local .deets/me.toml
 
 # Export for scripts
 deets export --format env     # DEETS_IDENTITY_NAME="..." format
@@ -71,6 +82,9 @@ deets import other.toml             # apply
 
 # Compare local vs global
 deets diff --format json
+
+# Version info
+deets version
 ```
 
 ## When to Use
@@ -78,6 +92,7 @@ deets diff --format json
 - **Author fields**: `deets get identity.name`, `deets get contact.email`
 - **Git identity**: `deets get identity.name`, `deets get contact.email`
 - **Academic papers**: `deets get academic.orcid`, `deets get academic.institution`
+- **Education/CV**: `deets get education.degrees`, `deets get education.phd`
 - **Profile/bio**: `deets show --format json` for bulk data
 - **Social links**: `deets get web.github`, `deets get web.blog`
 - **Safe fallbacks**: `deets get key --default "value"` never fails

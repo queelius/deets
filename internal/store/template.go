@@ -29,6 +29,12 @@ const DefaultTemplate = `# deets — Personal metadata
 # institution = "University of..."
 # title = "..."
 # research_interests = ["topic1", "topic2"]
+
+[education]
+# degrees = ["BS Computer Science (University, 2020)"]
+# degrees_desc = "Completed degrees with institution and year"
+# field = "Computer Science"
+# institution = "University of..."
 `
 
 // LocalTemplate is the minimal template for local overrides.
@@ -63,6 +69,11 @@ var DefaultDescriptions = map[string]map[string]string{
 		"institution":        "Academic institution",
 		"title":              "Academic title or position",
 		"research_interests": "Research interest areas",
-		"scholar":            "Google Scholar profile URL",
+		"scholar":            "Google Scholar ID",
+	},
+	"education": {
+		"degrees":     "Completed degrees with institution and year",
+		"field":       "Primary field of study",
+		"institution": "Degree-granting institution",
 	},
 }
