@@ -32,12 +32,19 @@ var claudeInstallCmd = &cobra.Command{
 	Short: "Install the deets skill for Claude Code",
 	Long: `Install the deets skill file so Claude Code knows how to use deets.
 
-By default installs to ~/.claude/skills/deets.md (global).
-Use --local to install to .claude/skills/deets.md in the current project.`,
+By default installs to ~/.claude/skills/deets/SKILL.md (global).
+Use --local to install to .claude/skills/deets/SKILL.md in the current project.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path, err := skillPath()
 		if err != nil {
 			return err
+		}
+
+		// Clean up old flat-file format if it exists
+		if oldPath, err := oldSkillPath(); err == nil {
+			if _, err := os.Stat(oldPath); err == nil {
+				os.Remove(oldPath)
+			}
 		}
 
 		dir := filepath.Dir(path)
@@ -65,25 +72,54 @@ var claudeUninstallCmd = &cobra.Command{
 			return err
 		}
 
-		if _, err := os.Stat(path); os.IsNotExist(err) {
+		// Clean up old flat-file format if it exists
+		if oldPath, err := oldSkillPath(); err == nil {
+			if _, err := os.Stat(oldPath); err == nil {
+				os.Remove(oldPath)
+				if !flagQuiet {
+					fmt.Printf("Removed old skill file %s\n", oldPath)
+				}
+			}
+		}
+
+		// Remove the skill directory (e.g., ~/.claude/skills/deets/)
+		skillDir := filepath.Dir(path)
+		if _, err := os.Stat(skillDir); os.IsNotExist(err) {
 			if !flagQuiet {
-				fmt.Printf("No skill file at %s\n", path)
+				fmt.Printf("No skill directory at %s\n", skillDir)
 			}
 			return nil
 		}
 
-		if err := os.Remove(path); err != nil {
-			return fmt.Errorf("removing %s: %w", path, err)
+		if err := os.RemoveAll(skillDir); err != nil {
+			return fmt.Errorf("removing %s: %w", skillDir, err)
 		}
 
 		if !flagQuiet {
-			fmt.Printf("Removed deets skill from %s\n", path)
+			fmt.Printf("Removed deets skill from %s\n", skillDir)
 		}
 		return nil
 	},
 }
 
 func skillPath() (string, error) {
+	if flagLocal && !flagClaudeGlobal {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(cwd, ".claude", "skills", "deets", "SKILL.md"), nil
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".claude", "skills", "deets", "SKILL.md"), nil
+}
+
+// oldSkillPath returns the legacy flat-file path for transition cleanup.
+func oldSkillPath() (string, error) {
 	if flagLocal && !flagClaudeGlobal {
 		cwd, err := os.Getwd()
 		if err != nil {

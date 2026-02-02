@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "deets"
+abstract: >-
+  A self-describing, TOML-backed personal metadata store.
+  Unix-philosophy CLI for making personal details instantly
+  available to coding agents and scripts.
+type: software
+authors:
+  - family-names: Towell
+    given-names: Alexander
+    orcid: "https://orcid.org/0000-0001-6443-9897"
+    email: lex@metafunctor.com
+    affiliation: "Southern Illinois University Edwardsville"
+repository-code: "https://github.com/queelius/deets"
+url: "https://metafunctor.com"
+license: MIT
+version: "0.6"
+keywords:
+  - personal-metadata
+  - toml
+  - cli
+  - identity
+  - coding-agents
