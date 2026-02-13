@@ -20,12 +20,28 @@ func ValidateName(name string) error {
 	return nil
 }
 
+// ValidateCategoryName checks that a category name is valid.
+// Category names may contain dots (for nested TOML tables like "profiles.github"),
+// but each dot-separated segment must be a valid bare key.
+func ValidateCategoryName(name string) error {
+	if name == "" {
+		return fmt.Errorf("name must not be empty")
+	}
+	parts := strings.Split(name, ".")
+	for _, part := range parts {
+		if err := ValidateName(part); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // SetValue sets a value for the given key within the specified category in the
 // TOML file at filePath. If the file does not exist it is created. If the
 // category or key does not exist it is appended. Existing lines, comments, and
 // formatting are preserved.
 func SetValue(filePath, category, key, value string) error {
-	if err := ValidateName(category); err != nil {
+	if err := ValidateCategoryName(category); err != nil {
 		return fmt.Errorf("invalid category: %w", err)
 	}
 	if err := ValidateName(key); err != nil {
@@ -79,7 +95,7 @@ func SetValue(filePath, category, key, value string) error {
 // filePath. If the category becomes empty (no keys left), the section header
 // is also removed. Returns an error if the key is not found.
 func RemoveValue(filePath, category, key string) error {
-	if err := ValidateName(category); err != nil {
+	if err := ValidateCategoryName(category); err != nil {
 		return fmt.Errorf("invalid category: %w", err)
 	}
 	if err := ValidateName(key); err != nil {
@@ -128,7 +144,7 @@ func RemoveValue(filePath, category, key string) error {
 // next section or EOF) from the TOML file at filePath. Returns an error if
 // the category is not found.
 func RemoveCategory(filePath, category string) error {
-	if err := ValidateName(category); err != nil {
+	if err := ValidateCategoryName(category); err != nil {
 		return fmt.Errorf("invalid category: %w", err)
 	}
 
