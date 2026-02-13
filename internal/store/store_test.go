@@ -449,3 +449,206 @@ name = "Alice"
 		t.Fatal("expected error for missing local file, got nil")
 	}
 }
+
+// --- Nested TOML table tests ---
+
+func TestLoadFile_NestedTables(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "me.toml")
+
+	content := `[identity]
+name = "Alice"
+
+[profiles.github]
+username = "alice"
+email = "alice@gh.com"
+
+[profiles.pypi]
+username = "alice"
+`
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	db, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+
+	if len(db.Categories) != 3 {
+		names := make([]string, len(db.Categories))
+		for i, c := range db.Categories {
+			names[i] = c.Name
+		}
+		t.Fatalf("expected 3 categories, got %d: %v", len(db.Categories), names)
+	}
+
+	expected := []string{"identity", "profiles.github", "profiles.pypi"}
+	for i, cat := range db.Categories {
+		if cat.Name != expected[i] {
+			t.Errorf("category[%d]: expected %q, got %q", i, expected[i], cat.Name)
+		}
+	}
+
+	// Check profiles.github has 2 fields with correct category
+	ghCat := db.Categories[1]
+	if len(ghCat.Fields) != 2 {
+		t.Fatalf("expected 2 fields in profiles.github, got %d", len(ghCat.Fields))
+	}
+	// Fields sorted: email, username
+	if ghCat.Fields[0].Key != "email" || ghCat.Fields[0].Category != "profiles.github" {
+		t.Errorf("unexpected field: key=%q cat=%q", ghCat.Fields[0].Key, ghCat.Fields[0].Category)
+	}
+	if ghCat.Fields[1].Key != "username" || ghCat.Fields[1].Value != "alice" {
+		t.Errorf("unexpected field: key=%q val=%v", ghCat.Fields[1].Key, ghCat.Fields[1].Value)
+	}
+}
+
+func TestLoadFile_NestedTablesWithDescs(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "me.toml")
+
+	content := `[profiles.github]
+username = "alice"
+username_desc = "GitHub handle"
+`
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	db, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+
+	if len(db.Categories) != 1 || db.Categories[0].Name != "profiles.github" {
+		t.Fatalf("expected 1 category 'profiles.github', got %v", db.Categories)
+	}
+	f := db.Categories[0].Fields[0]
+	if f.Key != "username" {
+		t.Errorf("expected key 'username', got %q", f.Key)
+	}
+	if f.Desc != "GitHub handle" {
+		t.Errorf("expected desc 'GitHub handle', got %q", f.Desc)
+	}
+}
+
+func TestLoadFile_MixedFlatAndNested(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "me.toml")
+
+	content := `[identity]
+name = "Alice"
+
+[contact]
+email = "alice@example.com"
+
+[profiles.github]
+username = "alice"
+
+[profiles.pypi]
+username = "alice"
+`
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	db, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+
+	expected := []string{"contact", "identity", "profiles.github", "profiles.pypi"}
+	if len(db.Categories) != len(expected) {
+		names := make([]string, len(db.Categories))
+		for i, c := range db.Categories {
+			names[i] = c.Name
+		}
+		t.Fatalf("expected %d categories, got %d: %v", len(expected), len(db.Categories), names)
+	}
+	for i, cat := range db.Categories {
+		if cat.Name != expected[i] {
+			t.Errorf("category[%d]: expected %q, got %q", i, expected[i], cat.Name)
+		}
+	}
+}
+
+func TestLoadFile_DeeplyNestedTables(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "me.toml")
+
+	content := `[a.b.c]
+key = "deep"
+`
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	db, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+
+	if len(db.Categories) != 1 {
+		names := make([]string, len(db.Categories))
+		for i, c := range db.Categories {
+			names[i] = c.Name
+		}
+		t.Fatalf("expected 1 category, got %d: %v", len(db.Categories), names)
+	}
+	if db.Categories[0].Name != "a.b.c" {
+		t.Errorf("expected category 'a.b.c', got %q", db.Categories[0].Name)
+	}
+	if db.Categories[0].Fields[0].Key != "key" || db.Categories[0].Fields[0].Value != "deep" {
+		t.Errorf("unexpected field: key=%q val=%v", db.Categories[0].Fields[0].Key, db.Categories[0].Fields[0].Value)
+	}
+	if db.Categories[0].Fields[0].Category != "a.b.c" {
+		t.Errorf("expected field category 'a.b.c', got %q", db.Categories[0].Fields[0].Category)
+	}
+}
+
+func TestLoadFile_MixedLeafAndSubTable(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "me.toml")
+
+	// A parent table with both direct leaf fields and sub-tables.
+	// In TOML: [profiles] has a leaf field "default", and [profiles.github]
+	// has its own fields.
+	content := `[profiles]
+default = "github"
+
+[profiles.github]
+username = "alice"
+`
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	db, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+
+	expected := []string{"profiles", "profiles.github"}
+	if len(db.Categories) != len(expected) {
+		names := make([]string, len(db.Categories))
+		for i, c := range db.Categories {
+			names[i] = c.Name
+		}
+		t.Fatalf("expected %d categories, got %d: %v", len(expected), len(db.Categories), names)
+	}
+	for i, cat := range db.Categories {
+		if cat.Name != expected[i] {
+			t.Errorf("category[%d]: expected %q, got %q", i, expected[i], cat.Name)
+		}
+	}
+
+	// profiles should have "default" field
+	if db.Categories[0].Fields[0].Key != "default" {
+		t.Errorf("expected profiles field 'default', got %q", db.Categories[0].Fields[0].Key)
+	}
+	// profiles.github should have "username" field
+	if db.Categories[1].Fields[0].Key != "username" {
+		t.Errorf("expected profiles.github field 'username', got %q", db.Categories[1].Fields[0].Key)
+	}
+}
