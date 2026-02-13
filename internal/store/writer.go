@@ -6,11 +6,32 @@ import (
 	"strings"
 )
 
+// ValidateName checks that a name is a valid TOML bare key (a-z, A-Z, 0-9, -, _).
+func ValidateName(name string) error {
+	if name == "" {
+		return fmt.Errorf("name must not be empty")
+	}
+	for _, r := range name {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') || r == '-' || r == '_') {
+			return fmt.Errorf("invalid character %q in name %q (allowed: a-z, A-Z, 0-9, -, _)", r, name)
+		}
+	}
+	return nil
+}
+
 // SetValue sets a value for the given key within the specified category in the
 // TOML file at filePath. If the file does not exist it is created. If the
 // category or key does not exist it is appended. Existing lines, comments, and
 // formatting are preserved.
 func SetValue(filePath, category, key, value string) error {
+	if err := ValidateName(category); err != nil {
+		return fmt.Errorf("invalid category: %w", err)
+	}
+	if err := ValidateName(key); err != nil {
+		return fmt.Errorf("invalid key: %w", err)
+	}
+
 	lines, err := readLines(filePath)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -58,6 +79,13 @@ func SetValue(filePath, category, key, value string) error {
 // filePath. If the category becomes empty (no keys left), the section header
 // is also removed. Returns an error if the key is not found.
 func RemoveValue(filePath, category, key string) error {
+	if err := ValidateName(category); err != nil {
+		return fmt.Errorf("invalid category: %w", err)
+	}
+	if err := ValidateName(key); err != nil {
+		return fmt.Errorf("invalid key: %w", err)
+	}
+
 	lines, err := readLines(filePath)
 	if err != nil {
 		return err
@@ -100,6 +128,10 @@ func RemoveValue(filePath, category, key string) error {
 // next section or EOF) from the TOML file at filePath. Returns an error if
 // the category is not found.
 func RemoveCategory(filePath, category string) error {
+	if err := ValidateName(category); err != nil {
+		return fmt.Errorf("invalid category: %w", err)
+	}
+
 	lines, err := readLines(filePath)
 	if err != nil {
 		return err
@@ -168,28 +200,54 @@ func findNextSection(lines []string, afterLine int) int {
 func findKey(lines []string, start, end int, key string) int {
 	for i := start; i < end; i++ {
 		trimmed := strings.TrimSpace(lines[i])
-		// Match "key = ..." or "key=..."
-		if strings.HasPrefix(trimmed, key) {
-			rest := trimmed[len(key):]
-			rest = strings.TrimLeft(rest, " \t")
-			if strings.HasPrefix(rest, "=") {
-				return i
-			}
+		if !strings.HasPrefix(trimmed, key) {
+			continue
+		}
+		// After stripping whitespace, the remainder must start with '='.
+		// This prevents "name" from matching "name_desc".
+		rest := strings.TrimLeft(trimmed[len(key):], " \t")
+		if len(rest) > 0 && rest[0] == '=' {
+			return i
 		}
 	}
 	return -1
 }
 
-// formatValue formats a value for TOML output. If the value starts with "[",
-// it is treated as an array literal and written as-is. If it starts with a
-// double quote, it is assumed to be already quoted. Otherwise, the value is
-// wrapped in double quotes.
+// formatValue formats a value for TOML output. If the value is a TOML array
+// literal it is written as-is. If it starts with a double quote, it is assumed
+// to be already quoted. Otherwise, the value is wrapped in double quotes.
 func formatValue(value string) string {
-	if strings.HasPrefix(value, "[") {
+	if isArrayLiteral(value) {
 		return value
 	}
 	if strings.HasPrefix(value, "\"") {
 		return value
 	}
 	return fmt.Sprintf("%q", value)
+}
+
+// isArrayLiteral reports whether value looks like a TOML array literal
+// (e.g. `[]`, `["a", "b"]`, `[1, 2]`). Plain strings that happen to start
+// with '[' (like "[hello]") are NOT array literals.
+func isArrayLiteral(value string) bool {
+	if len(value) < 2 || value[0] != '[' || value[len(value)-1] != ']' {
+		return false
+	}
+	if value == "[]" {
+		return true
+	}
+	// Skip any whitespace after '[', then check the first content character.
+	// Array elements start with '"' (strings), a digit or '-' (numbers),
+	// or 't'/'f' (booleans). Bare words like "[hello]" don't match.
+	for i := 1; i < len(value); i++ {
+		switch value[i] {
+		case ' ', '\t':
+			continue
+		case '"', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', 't', 'f':
+			return true
+		default:
+			return false
+		}
+	}
+	return false
 }

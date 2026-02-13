@@ -609,6 +609,315 @@ func TestReadLines_WithContent(t *testing.T) {
 	}
 }
 
+// --- findKey prefix-safety tests ---
+
+func TestFindKey_DoesNotMatchPrefix(t *testing.T) {
+	lines := []string{
+		"[identity]",
+		`name_desc = "Full legal name"`,
+		`name = "Alice"`,
+	}
+
+	// Searching for "name" should find line 2 (name = "Alice"), not line 1 (name_desc).
+	idx := findKey(lines, 1, 3, "name")
+	if idx != 2 {
+		t.Errorf("expected index 2 for 'name', got %d", idx)
+	}
+
+	// Searching for "name_desc" should find line 1.
+	idx = findKey(lines, 1, 3, "name_desc")
+	if idx != 1 {
+		t.Errorf("expected index 1 for 'name_desc', got %d", idx)
+	}
+}
+
+func TestFindKey_DoesNotMatchShorterPrefix(t *testing.T) {
+	lines := []string{
+		"[contact]",
+		`email2 = "alt@example.com"`,
+		`email = "main@example.com"`,
+	}
+
+	// Searching for "email" must not match "email2".
+	idx := findKey(lines, 1, 3, "email")
+	if idx != 2 {
+		t.Errorf("expected index 2 for 'email', got %d", idx)
+	}
+}
+
+func TestFindKey_VariousSpacing(t *testing.T) {
+	tests := []struct {
+		line string
+		want bool
+	}{
+		{`name = "val"`, true},
+		{`name="val"`, true},
+		{`name  =  "val"`, true},
+		{`name	= "val"`, true}, // tab before =
+	}
+
+	for _, tt := range tests {
+		lines := []string{tt.line}
+		idx := findKey(lines, 0, 1, "name")
+		got := idx == 0
+		if got != tt.want {
+			t.Errorf("findKey(%q, 'name') = %v, want %v", tt.line, got, tt.want)
+		}
+	}
+}
+
+func TestSetValue_DoesNotClobberSimilarKey(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "me.toml")
+
+	initial := `[identity]
+name_desc = "Full legal name"
+name = "Alice"
+`
+	if err := os.WriteFile(path, []byte(initial), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Setting "name" should not affect "name_desc".
+	if err := SetValue(path, "identity", "name", "Bob"); err != nil {
+		t.Fatalf("SetValue returned error: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	content := string(data)
+	if !strings.Contains(content, `name_desc = "Full legal name"`) {
+		t.Errorf("name_desc should be preserved, got:\n%s", content)
+	}
+	if !strings.Contains(content, `name = "Bob"`) {
+		t.Errorf("name should be updated, got:\n%s", content)
+	}
+}
+
+// --- formatValue / isArrayLiteral tests ---
+
+func TestFormatValue_BracketString(t *testing.T) {
+	// "[hello]" is NOT an array — it's a string that starts with '['.
+	result := formatValue("[hello]")
+	if result != `"[hello]"` {
+		t.Errorf("expected quoted string, got %q", result)
+	}
+}
+
+func TestFormatValue_EmptyArray(t *testing.T) {
+	result := formatValue("[]")
+	if result != "[]" {
+		t.Errorf("expected empty array as-is, got %q", result)
+	}
+}
+
+func TestFormatValue_RealArray(t *testing.T) {
+	result := formatValue(`["a", "b"]`)
+	if result != `["a", "b"]` {
+		t.Errorf("expected real array as-is, got %q", result)
+	}
+}
+
+func TestIsArrayLiteral(t *testing.T) {
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		{`["a", "b"]`, true},
+		{`[]`, true},
+		{`[1, 2, 3]`, true},
+		{`[123]`, true},
+		{`[-1, 0, 1]`, true},
+		{`[true, false]`, true},
+		{`[ "a", "b"]`, true},  // leading whitespace
+		{`[hello]`, false},     // bare word — string, not array
+		{`[Hello World]`, false},
+		{`[`, false},
+		{`]`, false},
+		{`""`, false},
+		{``, false},
+	}
+	for _, tt := range tests {
+		got := isArrayLiteral(tt.input)
+		if got != tt.want {
+			t.Errorf("isArrayLiteral(%q) = %v, want %v", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestSetValue_BracketStringProducesValidTOML(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "me.toml")
+
+	initial := "[identity]\n"
+	if err := os.WriteFile(path, []byte(initial), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := SetValue(path, "identity", "motto", "[hello]"); err != nil {
+		t.Fatalf("SetValue returned error: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	content := string(data)
+	if !strings.Contains(content, `motto = "[hello]"`) {
+		t.Errorf("expected quoted bracket string, got:\n%s", content)
+	}
+
+	// Verify it's valid TOML by round-tripping through Load.
+	db, err := Load(path, "")
+	if err != nil {
+		t.Fatalf("produced invalid TOML: %v", err)
+	}
+	f, ok := db.GetField("identity.motto")
+	if !ok {
+		t.Fatal("expected identity.motto field")
+	}
+	if f.Value != "[hello]" {
+		t.Errorf("expected value [hello], got %q", f.Value)
+	}
+}
+
+// --- ValidateName tests ---
+
+func TestValidateName_ValidNames(t *testing.T) {
+	valid := []string{"name", "research_interests", "my-key", "Key1", "a", "A-Z_09"}
+	for _, name := range valid {
+		if err := ValidateName(name); err != nil {
+			t.Errorf("ValidateName(%q) = %v, want nil", name, err)
+		}
+	}
+}
+
+func TestValidateName_InvalidNames(t *testing.T) {
+	invalid := []string{
+		"",           // empty
+		"a.b",        // dot
+		"a b",        // space
+		"evil]",      // bracket
+		"[evil",      // bracket
+		"new\nline",  // newline
+		"tab\there",  // tab
+		"café",       // unicode
+	}
+	for _, name := range invalid {
+		if err := ValidateName(name); err == nil {
+			t.Errorf("ValidateName(%q) = nil, want error", name)
+		}
+	}
+}
+
+func TestSetValue_RejectsInvalidCategory(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "me.toml")
+
+	err := SetValue(path, "evil]", "name", "x")
+	if err == nil {
+		t.Fatal("expected error for invalid category, got nil")
+	}
+	if !strings.Contains(err.Error(), "invalid category") {
+		t.Errorf("error should mention invalid category, got: %v", err)
+	}
+}
+
+func TestSetValue_RejectsInvalidKey(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "me.toml")
+
+	err := SetValue(path, "identity", "a.b", "x")
+	if err == nil {
+		t.Fatal("expected error for invalid key, got nil")
+	}
+	if !strings.Contains(err.Error(), "invalid key") {
+		t.Errorf("error should mention invalid key, got: %v", err)
+	}
+}
+
+func TestRemoveValue_RejectsInvalidNames(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "me.toml")
+	os.WriteFile(path, []byte("[identity]\nname = \"x\"\n"), 0644)
+
+	if err := RemoveValue(path, "evil]", "name"); err == nil {
+		t.Fatal("expected error for invalid category")
+	}
+	if err := RemoveValue(path, "identity", "a b"); err == nil {
+		t.Fatal("expected error for invalid key")
+	}
+}
+
+func TestSetValue_HashCharacterInValue(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "me.toml")
+
+	initial := "[identity]\n"
+	if err := os.WriteFile(path, []byte(initial), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// '#' in a value could be misinterpreted as an inline TOML comment.
+	// formatValue uses %q which properly escapes it inside double quotes.
+	if err := SetValue(path, "identity", "motto", "C# is great"); err != nil {
+		t.Fatalf("SetValue returned error: %v", err)
+	}
+
+	// Verify it round-trips through Load.
+	db, err := Load(path, "")
+	if err != nil {
+		t.Fatalf("produced invalid TOML: %v", err)
+	}
+	f, ok := db.GetField("identity.motto")
+	if !ok {
+		t.Fatal("expected identity.motto field")
+	}
+	if f.Value != "C# is great" {
+		t.Errorf("expected 'C# is great', got %q", f.Value)
+	}
+}
+
+func TestSetValue_Idempotent(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "me.toml")
+
+	initial := "[identity]\nname = \"Alice\"\n"
+	if err := os.WriteFile(path, []byte(initial), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Set the same value twice — file should not get corrupted.
+	for i := 0; i < 2; i++ {
+		if err := SetValue(path, "identity", "name", "Alice"); err != nil {
+			t.Fatalf("SetValue #%d returned error: %v", i+1, err)
+		}
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+	if strings.Count(content, "name") != 1 {
+		t.Errorf("expected exactly one 'name' entry, got:\n%s", content)
+	}
+}
+
+func TestRemoveCategory_RejectsInvalidName(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "me.toml")
+	os.WriteFile(path, []byte("[identity]\nname = \"x\"\n"), 0644)
+
+	if err := RemoveCategory(path, "evil]"); err == nil {
+		t.Fatal("expected error for invalid category")
+	}
+}
+
 func TestWriteLines_AppendsNewline(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "out.toml")

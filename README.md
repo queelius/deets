@@ -61,6 +61,11 @@ deets get foo.bar --exists       # exit 0 if found, 2 if not (no output)
 
 Single exact matches output bare values (pipe-friendly). Multiple matches show a table on TTY, JSON when piped.
 
+Glob patterns supported:
+- `category.*` — all fields in a category (e.g., `identity.*`)
+- `*.key` — find a key across all categories (e.g., `*.orcid`)
+- `category.prefix*` — prefix match within a category (e.g., `web.git*`)
+
 ### Show
 
 ```bash
@@ -182,6 +187,30 @@ deets set --local contact.email "project@example.com"
 ```
 
 Local keys replace matching global keys within categories. Discovery walks up from cwd.
+
+### Merge Behavior
+
+When a local `.deets/me.toml` is present, fields are merged at key-level granularity:
+
+- Local fields **override** matching global fields within the same category
+- Non-overlapping fields from both files are **preserved**
+- Categories only in global → included as-is; categories only in local → included as-is
+
+```
+# ~/.deets/me.toml (global)      # .deets/me.toml (local)
+[identity]                        [identity]
+name = "Alex Towell"             email_work = "alex@corp.com"
+pronouns = "he/him"
+                                  [contact]
+[contact]                         email = "project@example.com"
+email = "alex@example.com"
+
+# Merged result:
+# identity.name        → "Alex Towell"       (global, no override)
+# identity.pronouns    → "he/him"            (global, no override)
+# identity.email_work  → "alex@corp.com"     (local addition)
+# contact.email        → "project@example.com" (local overrides global)
+```
 
 ## Claude Code Integration
 

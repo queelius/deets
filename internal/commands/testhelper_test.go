@@ -76,6 +76,7 @@ func setupTestEnv(t *testing.T) string {
 	flagGetDesc = false
 	flagGetExists = false
 	flagImportDryRun = false
+	flagClaudeGlobal = false
 
 	return home
 }

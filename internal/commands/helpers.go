@@ -26,11 +26,18 @@ func (e *ExitError) Error() string {
 	return fmt.Sprintf("exit code %d", e.Code)
 }
 
-// parsePath splits a "category.key" path and validates both parts are non-empty.
+// parsePath splits a "category.key" path and validates both parts are non-empty
+// and contain only valid TOML bare-key characters.
 func parsePath(path string) (category, key string, err error) {
 	parts := strings.SplitN(path, ".", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		return "", "", fmt.Errorf("invalid path %q: expected category.key", path)
+	}
+	if err := store.ValidateName(parts[0]); err != nil {
+		return "", "", fmt.Errorf("invalid path %q: %w", path, err)
+	}
+	if err := store.ValidateName(parts[1]); err != nil {
+		return "", "", fmt.Errorf("invalid path %q: %w", path, err)
 	}
 	return parts[0], parts[1], nil
 }
