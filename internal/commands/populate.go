@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -23,7 +24,7 @@ var (
 
 func init() {
 	populateCmd.Flags().BoolVar(&flagPopulateGit, "git", false, "harvest from local git config")
-	populateCmd.Flags().BoolVar(&flagPopulateGithub, "github", false, "harvest from GitHub API (not yet implemented)")
+	populateCmd.Flags().BoolVar(&flagPopulateGithub, "github", false, "harvest from GitHub API via gh CLI")
 	populateCmd.Flags().BoolVar(&flagPopulateOrcid, "orcid", false, "harvest from ORCID API (not yet implemented)")
 	populateCmd.Flags().BoolVar(&flagPopulateAll, "all", false, "enable all available sources")
 	populateCmd.Flags().BoolVar(&flagPopulateDryRun, "dry-run", false, "preview changes without writing")
@@ -48,6 +49,7 @@ proposed changes, or --yes to skip confirmation.
 
 Examples:
   deets populate --git              # harvest from local git config
+  deets populate --github           # harvest from GitHub profile
   deets populate --git --dry-run    # preview only
   deets populate --git --yes        # skip confirmation
   deets populate --all              # all available sources`,
@@ -191,10 +193,55 @@ func populateGit() ([]populateEntry, error) {
 	return entries, nil
 }
 
-// populateGithub harvests metadata from the GitHub API.
-// Not yet implemented — will be added in a future task.
+// populateGithub harvests metadata from the GitHub API via `gh api user`.
 func populateGithub() ([]populateEntry, error) {
-	return nil, nil
+	data, err := exec.Command("gh", "api", "user").Output()
+	if err != nil {
+		return nil, fmt.Errorf("running 'gh api user': %w (is gh CLI installed and authenticated?)", err)
+	}
+	return parseGitHubUser(data)
+}
+
+// parseGitHubUser parses the JSON from `gh api user` into populate entries.
+func parseGitHubUser(data []byte) ([]populateEntry, error) {
+	var user struct {
+		Login   string `json:"login"`
+		Name    string `json:"name"`
+		Email   string `json:"email"`
+		Bio     string `json:"bio"`
+		Blog    string `json:"blog"`
+		HTMLURL string `json:"html_url"`
+	}
+	if err := json.Unmarshal(data, &user); err != nil {
+		return nil, fmt.Errorf("parsing GitHub response: %w", err)
+	}
+
+	var entries []populateEntry
+
+	if user.Login != "" {
+		entries = append(entries, populateEntry{"profiles.github", "username", user.Login})
+	}
+	if user.Name != "" {
+		entries = append(entries, populateEntry{"profiles.github", "name", user.Name})
+		// Also suggest for identity.name if not empty
+		entries = append(entries, populateEntry{"identity", "name", user.Name})
+	}
+	if user.Email != "" {
+		entries = append(entries, populateEntry{"profiles.github", "email", user.Email})
+		// Also suggest for contact.email
+		entries = append(entries, populateEntry{"contact", "email", user.Email})
+	}
+	if user.HTMLURL != "" {
+		entries = append(entries, populateEntry{"profiles.github", "url", user.HTMLURL})
+	}
+	if user.Bio != "" {
+		entries = append(entries, populateEntry{"profiles.github", "bio", user.Bio})
+	}
+	if user.Blog != "" {
+		entries = append(entries, populateEntry{"profiles.blog", "url", user.Blog})
+	}
+
+	return entries, nil
 }
 
 // populateOrcid harvests metadata from the ORCID API.

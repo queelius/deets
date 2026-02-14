@@ -202,3 +202,113 @@ func TestPopulate_GitLocalFlag(t *testing.T) {
 		t.Errorf("expected local file to contain Test User, got:\n%s", content)
 	}
 }
+
+// --- GitHub populate tests (unit tests for parseGitHubUser) ---
+
+func TestPopulateGitHub_Mapping(t *testing.T) {
+	ghJSON := `{"login":"alice","name":"Alice Smith","email":"alice@gh.com","bio":"Developer","blog":"https://alice.dev","html_url":"https://github.com/alice"}`
+	entries, err := parseGitHubUser([]byte(ghJSON))
+	if err != nil {
+		t.Fatalf("parseGitHubUser: %v", err)
+	}
+	found := make(map[string]string)
+	for _, e := range entries {
+		found[e.category+"."+e.key] = e.value
+	}
+	if found["profiles.github.username"] != "alice" {
+		t.Errorf("expected username=alice, got %q", found["profiles.github.username"])
+	}
+	if found["profiles.github.name"] != "Alice Smith" {
+		t.Errorf("expected name='Alice Smith', got %q", found["profiles.github.name"])
+	}
+	if found["profiles.github.email"] != "alice@gh.com" {
+		t.Errorf("expected email, got %q", found["profiles.github.email"])
+	}
+	if found["profiles.github.url"] != "https://github.com/alice" {
+		t.Errorf("expected url, got %q", found["profiles.github.url"])
+	}
+	if found["profiles.github.bio"] != "Developer" {
+		t.Errorf("expected bio, got %q", found["profiles.github.bio"])
+	}
+	if found["profiles.blog.url"] != "https://alice.dev" {
+		t.Errorf("expected blog url, got %q", found["profiles.blog.url"])
+	}
+	// Also populates identity and contact
+	if found["identity.name"] != "Alice Smith" {
+		t.Errorf("expected identity.name, got %q", found["identity.name"])
+	}
+	if found["contact.email"] != "alice@gh.com" {
+		t.Errorf("expected contact.email, got %q", found["contact.email"])
+	}
+}
+
+func TestPopulateGitHub_PartialData(t *testing.T) {
+	// Minimal JSON with only login
+	ghJSON := `{"login":"alice","html_url":"https://github.com/alice"}`
+	entries, err := parseGitHubUser([]byte(ghJSON))
+	if err != nil {
+		t.Fatalf("parseGitHubUser: %v", err)
+	}
+	found := make(map[string]string)
+	for _, e := range entries {
+		found[e.category+"."+e.key] = e.value
+	}
+	if found["profiles.github.username"] != "alice" {
+		t.Errorf("expected username=alice, got %q", found["profiles.github.username"])
+	}
+	// No name, email, bio, blog -> should NOT be in entries
+	if _, ok := found["profiles.github.name"]; ok {
+		t.Error("empty name should not produce an entry")
+	}
+	if _, ok := found["profiles.github.email"]; ok {
+		t.Error("empty email should not produce an entry")
+	}
+	if _, ok := found["profiles.github.bio"]; ok {
+		t.Error("empty bio should not produce an entry")
+	}
+	if _, ok := found["profiles.blog.url"]; ok {
+		t.Error("empty blog should not produce an entry")
+	}
+	// identity.name and contact.email should also be absent
+	if _, ok := found["identity.name"]; ok {
+		t.Error("empty name should not produce identity.name entry")
+	}
+	if _, ok := found["contact.email"]; ok {
+		t.Error("empty email should not produce contact.email entry")
+	}
+}
+
+func TestPopulateGitHub_InvalidJSON(t *testing.T) {
+	_, err := parseGitHubUser([]byte("not json"))
+	if err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+}
+
+func TestPopulateGitHub_EmptyJSON(t *testing.T) {
+	entries, err := parseGitHubUser([]byte("{}"))
+	if err != nil {
+		t.Fatalf("parseGitHubUser: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("expected no entries for empty JSON, got %d", len(entries))
+	}
+}
+
+func TestPopulateGitHub_EntryCount(t *testing.T) {
+	// Full profile should produce exactly 8 entries:
+	// profiles.github.username, profiles.github.name, identity.name,
+	// profiles.github.email, contact.email, profiles.github.url,
+	// profiles.github.bio, profiles.blog.url
+	ghJSON := `{"login":"alice","name":"Alice","email":"a@b.com","bio":"Dev","blog":"https://a.dev","html_url":"https://github.com/alice"}`
+	entries, err := parseGitHubUser([]byte(ghJSON))
+	if err != nil {
+		t.Fatalf("parseGitHubUser: %v", err)
+	}
+	if len(entries) != 8 {
+		t.Errorf("expected 8 entries for full profile, got %d", len(entries))
+		for _, e := range entries {
+			t.Logf("  %s.%s = %s", e.category, e.key, e.value)
+		}
+	}
+}
