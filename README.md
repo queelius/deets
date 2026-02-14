@@ -25,14 +25,20 @@ deets init
 # Set some values
 deets set identity.name "Alexander Towell"
 deets set identity.aka '["Alex Towell"]'
-deets set web.github "queelius"
-deets set academic.orcid "0000-0002-1234-5678"
-deets describe academic.orcid "ORCID persistent digital identifier"
+deets set profiles.github.username "queelius"
+deets set academic.orcid "0000-0001-6443-9897"
+
+# Or auto-populate from external sources
+deets populate --git             # harvest from git config
+deets populate --github          # harvest from GitHub API (requires gh CLI)
+deets populate --all             # all available sources
 
 # Get values (great for scripts)
-deets get identity.name          # → Alexander Towell
-deets get web.github             # → queelius
-name=$(deets get identity.name)  # pipe-friendly bare output
+deets get identity.name               # → Alexander Towell
+deets get profiles.github.username    # → queelius
+deets get profiles.github             # → all GitHub profile fields
+deets get profiles.*.email            # → all platform emails
+name=$(deets get identity.name)       # pipe-friendly bare output
 ```
 
 ## Global Flags
@@ -50,21 +56,23 @@ When `--format` is not set, output defaults to `table` on a TTY and `json` when 
 ### Get
 
 ```bash
-deets get identity.name          # single value, bare output
-deets get academic               # all fields in category
-deets get *.orcid                # find key across all categories
-deets get identity.na*           # glob within category
-deets get identity.name --desc   # include field description
-deets get foo.bar --default x    # return "x" if not found
-deets get foo.bar --exists       # exit 0 if found, 2 if not (no output)
+deets get identity.name               # single value, bare output
+deets get profiles.github             # all fields in a dotted category
+deets get profiles.github.username    # field in a dotted category
+deets get profiles.*.email            # cross-platform glob
+deets get *.orcid                     # find key across all categories
+deets get identity.name --desc        # include field description
+deets get foo.bar --default x         # return "x" if not found
+deets get foo.bar --exists            # exit 0 if found, 2 if not (no output)
 ```
 
 Single exact matches output bare values (pipe-friendly). Multiple matches show a table on TTY, JSON when piped.
 
 Glob patterns supported:
-- `category.*` — all fields in a category (e.g., `identity.*`)
+- `category` or `category.*` — all fields in a category (e.g., `profiles.github`)
+- `profiles.*` — all fields across dotted sub-categories
+- `profiles.*.email` — specific key across dotted sub-categories
 - `*.key` — find a key across all categories (e.g., `*.orcid`)
-- `category.prefix*` — prefix match within a category (e.g., `web.git*`)
 
 ### Show
 
@@ -85,6 +93,8 @@ echo "piped" | deets set identity.name    # value from stdin
 cat bio.txt | deets set identity.bio -    # explicit stdin with "-"
 deets rm contact.phone           # remove a field
 deets rm cooking                 # remove entire category
+deets rm profiles.github         # remove a dotted category
+deets rm profiles.github.email   # remove field in dotted category
 ```
 
 ### Search
@@ -99,7 +109,7 @@ deets search "towell"            # search keys, values, and descriptions
 deets describe                   # all descriptions
 deets describe identity          # descriptions in category
 deets describe academic.orcid    # single field description
-deets describe web.mastodon "Mastodon handle"  # set a description
+deets describe profiles.mastodon.handle "Mastodon handle"  # set a description
 ```
 
 ### Keys
@@ -140,6 +150,17 @@ deets schema                     # show field types and metadata
 deets schema --format json       # JSON output
 ```
 
+### Populate
+
+```bash
+deets populate --git             # harvest name/email from git config
+deets populate --github          # harvest from GitHub API (requires gh CLI)
+deets populate --orcid           # harvest from ORCID API (requires academic.orcid)
+deets populate --all             # all available sources
+deets populate --github --dry-run  # preview without writing
+deets populate --all --yes       # skip confirmation prompt
+```
+
 ### Other
 
 ```bash
@@ -158,24 +179,28 @@ deets completion bash            # shell completions
 ```toml
 [identity]
 name = "Alexander Towell"
-name_desc = "Full legal name"
 aka = ["Alex Towell"]
 pronouns = "he/him"
 
 [contact]
-email = "alex@example.com"
-
-[web]
-github = "queelius"
-blog = "https://example.com"
+email = "lex@metafunctor.com"
 
 [academic]
-orcid = "0000-0002-1234-5678"
-orcid_desc = "ORCID persistent digital identifier"
+orcid = "0000-0001-6443-9897"
+institution = "Southern Illinois University Edwardsville"
 research_interests = ["information retrieval", "Bayesian statistics"]
+
+[profiles.github]
+username = "queelius"
+email = "queelius@gmail.com"
+url = "https://github.com/queelius"
+
+[profiles.pypi]
+username = "queelius"
+email = "lex@metafunctor.com"
 ```
 
-Any `[category]` with any `key = "value"` is valid. Add `_desc` suffix for self-describing fields.
+Any `[category]` with any `key = "value"` is valid. Platform profiles use `[profiles.name]` sections, enabling cross-platform queries like `deets get profiles.*.email`.
 
 ### Local Overrides
 
