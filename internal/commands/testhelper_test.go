@@ -111,6 +111,9 @@ orcid = "0000-0001-2345-6789"
 orcid_desc = "ORCID persistent digital identifier"
 gpa = 3.95
 topics = ["statistics", "machine learning"]
+
+[profiles.github]
+username = "queelius"
 `
 	if err := os.WriteFile(filepath.Join(deetsDir, "me.toml"), []byte(toml), 0644); err != nil {
 		t.Fatalf("writing test TOML: %v", err)

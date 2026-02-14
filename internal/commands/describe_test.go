@@ -89,13 +89,13 @@ func TestDescribe_SetDescription(t *testing.T) {
 func TestDescribe_DefaultDescriptionFallback(t *testing.T) {
 	setupTestDB(t)
 	flagFormat = "table"
-	// web.website has no explicit _desc in test data, but DefaultDescriptions
-	// has a fallback for it: "Personal website URL".
-	stdout, _, err := executeCommand("describe", "web.website")
+	// profiles.github.username has no explicit _desc in test data, but
+	// DefaultDescriptions has a fallback for it: "GitHub username".
+	stdout, _, err := executeCommand("describe", "profiles.github.username")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.Contains(stdout, "Personal website URL") {
+	if !strings.Contains(stdout, "GitHub username") {
 		t.Errorf("expected default description fallback, got %q", stdout)
 	}
 }

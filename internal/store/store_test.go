@@ -226,8 +226,8 @@ func TestLoadFile_DefaultDescriptionFallback(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "me.toml")
 
-	content := `[web]
-github = "alice"
+	content := `[profiles.github]
+username = "alice"
 `
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatal(err)
@@ -252,9 +252,9 @@ func TestLoadFile_ExplicitDescOverridesDefault(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "me.toml")
 
-	content := `[web]
-github = "alice"
-github_desc = "My GitHub handle"
+	content := `[profiles.github]
+username = "alice"
+username_desc = "My GitHub handle"
 `
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatal(err)
@@ -604,6 +604,30 @@ key = "deep"
 	}
 	if db.Categories[0].Fields[0].Category != "a.b.c" {
 		t.Errorf("expected field category 'a.b.c', got %q", db.Categories[0].Fields[0].Category)
+	}
+}
+
+func TestLoadFile_ProfilesDefaultDescriptions(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "me.toml")
+
+	content := `[profiles.github]
+username = "alice"
+email = "a@gh.com"
+url = "https://github.com/alice"
+`
+	os.WriteFile(path, []byte(content), 0644)
+
+	db, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+
+	cat := db.Categories[0]
+	for _, f := range cat.Fields {
+		if f.Desc == "" {
+			t.Errorf("field %q has empty description (should have default)", f.Key)
+		}
 	}
 }
 

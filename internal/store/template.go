@@ -2,39 +2,35 @@ package store
 
 // DefaultTemplate is the default me.toml content for `deets init`.
 const DefaultTemplate = `# deets — Personal metadata
-# Edit this file to add your personal details.
 # Any [category] with any key = "value" is valid.
-# Add _desc suffix for self-describing fields:
-#   orcid = "0000-..."
-#   orcid_desc = "ORCID persistent digital identifier"
+# Run 'deets populate --all' to auto-fill from your accounts.
 
 [identity]
 # name = "Your Name"
-# name_desc = "Full legal name"
 # aka = ["Nickname"]
-# aka_desc = "Known aliases and nicknames"
 # pronouns = "they/them"
 
 [contact]
 # email = "you@example.com"
-# email_desc = "Primary email address"
-
-[web]
-# github = "username"
-# blog = "https://example.com"
 
 [academic]
 # orcid = "0000-0000-0000-0000"
-# orcid_desc = "ORCID persistent digital identifier"
 # institution = "University of..."
-# title = "..."
 # research_interests = ["topic1", "topic2"]
+# scholar = "Google Scholar ID"
 
 [education]
 # degrees = ["BS Computer Science (University, 2020)"]
-# degrees_desc = "Completed degrees with institution and year"
-# field = "Computer Science"
-# institution = "University of..."
+# phd = "Field of study"
+
+[profiles.github]
+# username = "your-username"
+
+[profiles.pypi]
+# username = "your-username"
+
+[profiles.orcid]
+# id = "0000-0000-0000-0000"
 `
 
 // LocalTemplate is the minimal template for local overrides.
@@ -55,25 +51,60 @@ var DefaultDescriptions = map[string]map[string]string{
 		"email": "Primary email address",
 		"phone": "Phone number",
 	},
-	"web": {
-		"github":   "GitHub username",
-		"blog":     "Personal blog URL",
-		"website":  "Personal website URL",
-		"mastodon": "Mastodon handle",
-		"twitter":  "Twitter/X handle",
-		"linkedin": "LinkedIn profile URL",
-		"bluesky":  "Bluesky handle",
-	},
 	"academic": {
 		"orcid":              "ORCID persistent digital identifier",
 		"institution":        "Academic institution",
 		"title":              "Academic title or position",
 		"research_interests": "Research interest areas",
-		"scholar":            "Google Scholar ID",
+		"scholar":            "Google Scholar profile ID",
 	},
 	"education": {
-		"degrees":     "Completed degrees with institution and year",
-		"field":       "Primary field of study",
-		"institution": "Degree-granting institution",
+		"degrees":         "Completed degrees with institution and year",
+		"field":           "Primary field of study",
+		"institution":     "Degree-granting institution",
+		"phd":             "PhD field of study",
+		"phd_institution": "PhD institution",
+	},
+	"profiles.github": {
+		"username": "GitHub username",
+		"name":     "Display name on GitHub",
+		"email":    "Email associated with GitHub account",
+		"url":      "GitHub profile URL",
+		"bio":      "GitHub profile bio",
+	},
+	"profiles.pypi": {
+		"username": "PyPI username",
+		"name":     "Author name for PyPI packages",
+		"email":    "Email for PyPI packages",
+		"url":      "PyPI profile URL",
+	},
+	"profiles.cran": {
+		"name":  "Author name for CRAN packages",
+		"email": "Email for CRAN packages",
+	},
+	"profiles.orcid": {
+		"id":    "ORCID identifier",
+		"name":  "Name registered with ORCID",
+		"email": "Email registered with ORCID",
+		"url":   "ORCID profile URL",
+	},
+	"profiles.bluesky": {
+		"handle": "Bluesky handle",
+		"url":    "Bluesky profile URL",
+	},
+	"profiles.mastodon": {
+		"handle": "Mastodon handle",
+		"url":    "Mastodon profile URL",
+	},
+	"profiles.blog": {
+		"url": "Blog URL",
+		"alt": "Alternative blog URL",
+	},
+	"profiles.zenodo": {
+		"username": "Zenodo username",
+		"url":      "Zenodo profile URL",
+	},
+	"profiles.linkedin": {
+		"url": "LinkedIn profile URL",
 	},
 }
