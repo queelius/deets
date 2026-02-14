@@ -9,98 +9,43 @@ description: >
 
 # deets — Personal Metadata CLI
 
-A TOML-backed personal metadata store. Query it for user identity and profile data.
-Categories are user-defined — any `[category]` with any `key = "value"` is valid.
+Query the user's personal metadata store. Fields are organized into core
+categories (identity, contact, academic, education) and platform profiles
+(profiles.github, profiles.pypi, profiles.orcid, etc.).
 
-## Quick Reference
+## Discovery
+
+Run `deets schema --format json` to see all available fields with types,
+descriptions, and example values. This is the authoritative source of what
+data exists.
+
+## Common Queries
 
 ```bash
-# Single value (great for scripts and $(...) substitution)
+# Single value (bare output, pipe-friendly)
 deets get identity.name
-deets get web.github
 deets get contact.email
+deets get profiles.github.username
 
-# With fallback (exit 0, never fails)
-deets get identity.nickname --default "friend"
+# Platform context (all fields for a platform)
+deets get profiles.github
+deets get profiles.pypi
 
-# Check existence without output
-deets get web.mastodon --exists && echo "has mastodon"
+# Cross-platform queries
+deets get profiles.*.email          # all platform emails
+deets get profiles.*.url            # all profile URLs
 
-# Category (all fields)
-deets get academic
-deets get education
+# With fallback (never fails)
+deets get academic.scholar --default ""
 
-# Cross-category search
-deets get *.orcid
-
-# Include descriptions
-deets get identity --desc
-
-# Structured output (use --format for any command)
-deets show --format json      # full JSON dump
-deets show identity           # single category table
-deets show --format yaml      # YAML output
-
-# List all field paths
-deets keys                    # one per line
-deets keys --format json      # JSON array
-
-# List category names
-deets categories              # one per line
-deets categories --format json
-
-# Inspect field types and metadata
-deets schema --format json    # category, key, type, description, example
-
-# Search across everything
-deets search "towell"
-
-# Understand field meanings
-deets describe academic.orcid
-deets describe education.degrees
-
-# Check configuration
-deets which --format json     # paths and merge status
-
-# Open metadata file in $EDITOR
-deets edit                    # edit global ~/.deets/me.toml
-deets edit --local            # edit local .deets/me.toml
-
-# Export for scripts
-deets export --format env     # DEETS_IDENTITY_NAME="..." format
-deets export --format json    # full JSON
-deets export --format yaml    # YAML
-deets export --format toml    # TOML
-
-# Set from stdin (useful in pipelines)
-echo "new value" | deets set identity.name
-git config user.email | deets set contact.email
-
-# Import fields from another TOML file
-deets import other.toml --dry-run   # preview
-deets import other.toml             # apply
-
-# Compare local vs global
-deets diff --format json
-
-# Version info
-deets version
+# Structured output
+deets show --format json            # full dump
+deets export --format env           # DEETS_IDENTITY_NAME="..." format
 ```
-
-## When to Use
-
-- **Author fields**: `deets get identity.name`, `deets get contact.email`
-- **Git identity**: `deets get identity.name`, `deets get contact.email`
-- **Academic papers**: `deets get academic.orcid`, `deets get academic.institution`
-- **Education/CV**: `deets get education.degrees`, `deets get education.phd`
-- **Profile/bio**: `deets show --format json` for bulk data
-- **Social links**: `deets get web.github`, `deets get web.blog`
-- **Safe fallbacks**: `deets get key --default "value"` never fails
 
 ## Output Conventions
 
 - Single `get`: bare value, no decoration (pipe-friendly)
-- Multiple matches: table on TTY, JSON when piped
-- `--format` flag: `table`, `json`, `toml`, `yaml`, `env`
-- `--quiet` / `-q`: suppress informational messages
-- Exit code 2 = key not found
+- Multiple matches: JSON when piped, table on TTY
+- `--format`: table, json, toml, yaml, env
+- Exit code 2 = not found
