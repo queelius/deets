@@ -77,6 +77,12 @@ func setupTestEnv(t *testing.T) string {
 	flagGetExists = false
 	flagImportDryRun = false
 	flagClaudeGlobal = false
+	flagPopulateGit = false
+	flagPopulateGithub = false
+	flagPopulateOrcid = false
+	flagPopulateAll = false
+	flagPopulateDryRun = false
+	flagPopulateYes = false
 
 	return home
 }
