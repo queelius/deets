@@ -36,6 +36,15 @@ func ValidateCategoryName(name string) error {
 	return nil
 }
 
+// HasCategory reports whether the TOML file at filePath contains a [category] section.
+func HasCategory(filePath, category string) bool {
+	lines, err := readLines(filePath)
+	if err != nil {
+		return false
+	}
+	return findSection(lines, category) != -1
+}
+
 // SetValue sets a value for the given key within the specified category in the
 // TOML file at filePath. If the file does not exist it is created. If the
 // category or key does not exist it is appended. Existing lines, comments, and
