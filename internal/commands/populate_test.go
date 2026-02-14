@@ -312,3 +312,132 @@ func TestPopulateGitHub_EntryCount(t *testing.T) {
 		}
 	}
 }
+
+// --- ORCID populate tests (unit tests for parseOrcidPerson) ---
+
+func TestPopulateOrcid_Mapping(t *testing.T) {
+	orcidJSON := `{"name":{"given-names":{"value":"Alice"},"family-name":{"value":"Smith"}},"emails":{"email":[{"email":"alice@university.edu"}]}}`
+	entries, err := parseOrcidPerson([]byte(orcidJSON), "0000-0001-2345-6789")
+	if err != nil {
+		t.Fatalf("parseOrcidPerson: %v", err)
+	}
+	found := make(map[string]string)
+	for _, e := range entries {
+		found[e.category+"."+e.key] = e.value
+	}
+	if found["profiles.orcid.name"] != "Alice Smith" {
+		t.Errorf("expected name='Alice Smith', got %q", found["profiles.orcid.name"])
+	}
+	if found["profiles.orcid.id"] != "0000-0001-2345-6789" {
+		t.Errorf("expected id, got %q", found["profiles.orcid.id"])
+	}
+	if found["profiles.orcid.url"] != "https://orcid.org/0000-0001-2345-6789" {
+		t.Errorf("expected url, got %q", found["profiles.orcid.url"])
+	}
+	if found["profiles.orcid.email"] != "alice@university.edu" {
+		t.Errorf("expected email, got %q", found["profiles.orcid.email"])
+	}
+}
+
+func TestPopulateOrcid_NoEmail(t *testing.T) {
+	orcidJSON := `{"name":{"given-names":{"value":"Alice"},"family-name":{"value":"Smith"}},"emails":{"email":[]}}`
+	entries, err := parseOrcidPerson([]byte(orcidJSON), "0000-0001-2345-6789")
+	if err != nil {
+		t.Fatalf("parseOrcidPerson: %v", err)
+	}
+	for _, e := range entries {
+		if e.key == "email" {
+			t.Error("should not have email entry when no email in response")
+		}
+	}
+}
+
+func TestPopulateOrcid_InvalidJSON(t *testing.T) {
+	_, err := parseOrcidPerson([]byte("not json"), "0000-0001-2345-6789")
+	if err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+}
+
+func TestPopulateOrcid_EmptyName(t *testing.T) {
+	orcidJSON := `{"name":{"given-names":{"value":""},"family-name":{"value":""}},"emails":{"email":[]}}`
+	entries, err := parseOrcidPerson([]byte(orcidJSON), "0000-0001-2345-6789")
+	if err != nil {
+		t.Fatalf("parseOrcidPerson: %v", err)
+	}
+	for _, e := range entries {
+		if e.key == "name" {
+			t.Error("should not have name entry when both given and family names are empty")
+		}
+	}
+	// Should still have id and url
+	found := make(map[string]string)
+	for _, e := range entries {
+		found[e.category+"."+e.key] = e.value
+	}
+	if found["profiles.orcid.id"] != "0000-0001-2345-6789" {
+		t.Errorf("expected id even with empty name, got %q", found["profiles.orcid.id"])
+	}
+	if found["profiles.orcid.url"] != "https://orcid.org/0000-0001-2345-6789" {
+		t.Errorf("expected url even with empty name, got %q", found["profiles.orcid.url"])
+	}
+}
+
+func TestPopulateOrcid_GivenNameOnly(t *testing.T) {
+	orcidJSON := `{"name":{"given-names":{"value":"Alice"},"family-name":{"value":""}},"emails":{"email":[]}}`
+	entries, err := parseOrcidPerson([]byte(orcidJSON), "0000-0001-2345-6789")
+	if err != nil {
+		t.Fatalf("parseOrcidPerson: %v", err)
+	}
+	found := make(map[string]string)
+	for _, e := range entries {
+		found[e.category+"."+e.key] = e.value
+	}
+	if found["profiles.orcid.name"] != "Alice" {
+		t.Errorf("expected name='Alice', got %q", found["profiles.orcid.name"])
+	}
+}
+
+func TestPopulateOrcid_EntryCount(t *testing.T) {
+	// Full profile: name, id, url, email = 4 entries
+	orcidJSON := `{"name":{"given-names":{"value":"Alice"},"family-name":{"value":"Smith"}},"emails":{"email":[{"email":"alice@uni.edu"}]}}`
+	entries, err := parseOrcidPerson([]byte(orcidJSON), "0000-0001-2345-6789")
+	if err != nil {
+		t.Fatalf("parseOrcidPerson: %v", err)
+	}
+	if len(entries) != 4 {
+		t.Errorf("expected 4 entries for full profile, got %d", len(entries))
+		for _, e := range entries {
+			t.Logf("  %s.%s = %s", e.category, e.key, e.value)
+		}
+	}
+}
+
+func TestPopulateOrcid_MinimalProfile(t *testing.T) {
+	// Minimal: just empty name and no email -> id and url only = 2 entries
+	orcidJSON := `{"name":{"given-names":{"value":""},"family-name":{"value":""}},"emails":{"email":[]}}`
+	entries, err := parseOrcidPerson([]byte(orcidJSON), "0000-0001-2345-6789")
+	if err != nil {
+		t.Fatalf("parseOrcidPerson: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Errorf("expected 2 entries for minimal profile, got %d", len(entries))
+		for _, e := range entries {
+			t.Logf("  %s.%s = %s", e.category, e.key, e.value)
+		}
+	}
+}
+
+func TestPopulateOrcid_EmptyEmailObject(t *testing.T) {
+	// Email object present but email string empty
+	orcidJSON := `{"name":{"given-names":{"value":"Alice"},"family-name":{"value":"Smith"}},"emails":{"email":[{"email":""}]}}`
+	entries, err := parseOrcidPerson([]byte(orcidJSON), "0000-0001-2345-6789")
+	if err != nil {
+		t.Fatalf("parseOrcidPerson: %v", err)
+	}
+	for _, e := range entries {
+		if e.key == "email" {
+			t.Error("should not have email entry when email string is empty")
+		}
+	}
+}

@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -25,7 +27,7 @@ var (
 func init() {
 	populateCmd.Flags().BoolVar(&flagPopulateGit, "git", false, "harvest from local git config")
 	populateCmd.Flags().BoolVar(&flagPopulateGithub, "github", false, "harvest from GitHub API via gh CLI")
-	populateCmd.Flags().BoolVar(&flagPopulateOrcid, "orcid", false, "harvest from ORCID API (not yet implemented)")
+	populateCmd.Flags().BoolVar(&flagPopulateOrcid, "orcid", false, "harvest from ORCID public API")
 	populateCmd.Flags().BoolVar(&flagPopulateAll, "all", false, "enable all available sources")
 	populateCmd.Flags().BoolVar(&flagPopulateDryRun, "dry-run", false, "preview changes without writing")
 	populateCmd.Flags().BoolVar(&flagPopulateYes, "yes", false, "skip confirmation prompt")
@@ -50,6 +52,7 @@ proposed changes, or --yes to skip confirmation.
 Examples:
   deets populate --git              # harvest from local git config
   deets populate --github           # harvest from GitHub profile
+  deets populate --orcid            # harvest from ORCID public API
   deets populate --git --dry-run    # preview only
   deets populate --git --yes        # skip confirmation
   deets populate --all              # all available sources`,
@@ -244,8 +247,84 @@ func parseGitHubUser(data []byte) ([]populateEntry, error) {
 	return entries, nil
 }
 
-// populateOrcid harvests metadata from the ORCID API.
-// Not yet implemented — will be added in a future task.
+// populateOrcid harvests metadata from the ORCID public API.
+// Requires academic.orcid to be set in the database first.
 func populateOrcid() ([]populateEntry, error) {
-	return nil, nil
+	db, err := loadDB()
+	if err != nil {
+		return nil, fmt.Errorf("loading database: %w", err)
+	}
+
+	field, ok := db.GetField("academic.orcid")
+	if !ok {
+		if !flagQuiet {
+			fmt.Fprintln(os.Stderr, "orcid: academic.orcid not set; skipping (set it with: deets set academic.orcid \"0000-...\")")
+		}
+		return nil, nil
+	}
+	orcid := model.FormatValue(field.Value)
+
+	url := fmt.Sprintf("https://pub.orcid.org/v3.0/%s/person", orcid)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("fetching ORCID profile: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("ORCID API returned %s for %s", resp.Status, orcid)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading ORCID response: %w", err)
+	}
+
+	return parseOrcidPerson(data, orcid)
+}
+
+// parseOrcidPerson parses the ORCID person API response into populate entries.
+func parseOrcidPerson(data []byte, orcid string) ([]populateEntry, error) {
+	var person struct {
+		Name struct {
+			GivenNames struct {
+				Value string `json:"value"`
+			} `json:"given-names"`
+			FamilyName struct {
+				Value string `json:"value"`
+			} `json:"family-name"`
+		} `json:"name"`
+		Emails struct {
+			Email []struct {
+				Email string `json:"email"`
+			} `json:"email"`
+		} `json:"emails"`
+	}
+	if err := json.Unmarshal(data, &person); err != nil {
+		return nil, fmt.Errorf("parsing ORCID response: %w", err)
+	}
+
+	var entries []populateEntry
+
+	given := person.Name.GivenNames.Value
+	family := person.Name.FamilyName.Value
+	if given != "" || family != "" {
+		fullName := strings.TrimSpace(given + " " + family)
+		entries = append(entries, populateEntry{"profiles.orcid", "name", fullName})
+	}
+
+	entries = append(entries, populateEntry{"profiles.orcid", "id", orcid})
+	entries = append(entries, populateEntry{"profiles.orcid", "url", "https://orcid.org/" + orcid})
+
+	if len(person.Emails.Email) > 0 && person.Emails.Email[0].Email != "" {
+		entries = append(entries, populateEntry{"profiles.orcid", "email", person.Emails.Email[0].Email})
+	}
+
+	return entries, nil
 }
