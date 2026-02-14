@@ -673,3 +673,111 @@ func TestBaseKey(t *testing.T) {
 		})
 	}
 }
+
+// ---------------------------------------------------------------------------
+// GetField — dotted category names
+// ---------------------------------------------------------------------------
+
+func TestGetField_DottedCategory(t *testing.T) {
+	db := &DB{
+		Categories: []Category{
+			{Name: "identity", Fields: []Field{
+				{Key: "name", Value: "Alice", Category: "identity"},
+			}},
+			{Name: "profiles.github", Fields: []Field{
+				{Key: "username", Value: "alice", Category: "profiles.github"},
+				{Key: "email", Value: "a@gh.com", Category: "profiles.github"},
+			}},
+		},
+	}
+
+	f, ok := db.GetField("identity.name")
+	if !ok || f.Value != "Alice" {
+		t.Errorf("GetField(identity.name) = %v, %v", f.Value, ok)
+	}
+
+	f, ok = db.GetField("profiles.github.username")
+	if !ok || f.Value != "alice" {
+		t.Errorf("GetField(profiles.github.username) = %v, %v", f.Value, ok)
+	}
+
+	f, ok = db.GetField("profiles.github.email")
+	if !ok || f.Value != "a@gh.com" {
+		t.Errorf("GetField(profiles.github.email) = %v, %v", f.Value, ok)
+	}
+
+	_, ok = db.GetField("profiles.github.nonexistent")
+	if ok {
+		t.Error("expected not found")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Query — dotted category names
+// ---------------------------------------------------------------------------
+
+func TestQuery_DottedCategory(t *testing.T) {
+	db := &DB{
+		Categories: []Category{
+			{Name: "identity", Fields: []Field{
+				{Key: "name", Value: "Alice", Category: "identity"},
+			}},
+			{Name: "profiles.github", Fields: []Field{
+				{Key: "username", Value: "alice", Category: "profiles.github"},
+				{Key: "email", Value: "a@gh.com", Category: "profiles.github"},
+			}},
+			{Name: "profiles.pypi", Fields: []Field{
+				{Key: "username", Value: "alice", Category: "profiles.pypi"},
+				{Key: "email", Value: "a@pypi.com", Category: "profiles.pypi"},
+			}},
+		},
+	}
+
+	// "profiles.github" matches as a category → all fields
+	fields := db.Query("profiles.github")
+	if len(fields) != 2 {
+		t.Fatalf("Query(profiles.github) returned %d fields, want 2", len(fields))
+	}
+
+	// "profiles.github.username" → specific field
+	fields = db.Query("profiles.github.username")
+	if len(fields) != 1 || fields[0].Value != "alice" {
+		t.Errorf("Query(profiles.github.username) = %v", fields)
+	}
+
+	// "profiles.*.email" → email from both profiles
+	fields = db.Query("profiles.*.email")
+	if len(fields) != 2 {
+		t.Errorf("Query(profiles.*.email) returned %d, want 2", len(fields))
+	}
+
+	// "profiles.*" → all profiles categories (all fields)
+	fields = db.Query("profiles.*")
+	if len(fields) != 4 {
+		t.Errorf("Query(profiles.*) returned %d, want 4", len(fields))
+	}
+
+	// "profiles.*.username" → username from both
+	fields = db.Query("profiles.*.username")
+	if len(fields) != 2 {
+		t.Errorf("Query(profiles.*.username) returned %d, want 2", len(fields))
+	}
+
+	// "identity" → all identity fields (no-dot category name)
+	fields = db.Query("identity")
+	if len(fields) != 1 || fields[0].Value != "Alice" {
+		t.Errorf("Query(identity) = %v", fields)
+	}
+
+	// "identity.name" → specific field
+	fields = db.Query("identity.name")
+	if len(fields) != 1 || fields[0].Value != "Alice" {
+		t.Errorf("Query(identity.name) = %v", fields)
+	}
+
+	// "*" glob on category names → all categories
+	fields = db.Query("*")
+	if len(fields) != 5 {
+		t.Errorf("Query(*) returned %d, want 5", len(fields))
+	}
+}

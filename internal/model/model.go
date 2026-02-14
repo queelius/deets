@@ -37,13 +37,15 @@ type DB struct {
 }
 
 // GetField retrieves a single field by its "category.key" path.
+// The path is split on the LAST dot, so "profiles.github.username" resolves
+// to category "profiles.github", key "username".
 // Returns the field and true if found, or a zero Field and false otherwise.
 func (db *DB) GetField(path string) (Field, bool) {
-	parts := strings.SplitN(path, ".", 2)
-	if len(parts) != 2 {
+	lastDot := strings.LastIndex(path, ".")
+	if lastDot == -1 {
 		return Field{}, false
 	}
-	catName, key := parts[0], parts[1]
+	catName, key := path[:lastDot], path[lastDot+1:]
 
 	for _, cat := range db.Categories {
 		if cat.Name == catName {
@@ -61,45 +63,52 @@ func (db *DB) GetField(path string) (Field, bool) {
 // Query performs a glob-based query against the database fields.
 //
 // Supported patterns:
-//   - "category.key"    — exact match for a specific field
-//   - "category" or "category.*" — all fields in the named category (excluding _desc fields)
-//   - "*.key"           — find a key across all categories
-//   - "category.prefix*" — glob match within a category
+//   - "category"              — all fields in the named category (excluding _desc fields)
+//   - "profiles.github"       — dotted category name → all fields in that category
+//   - "profiles.*"            — glob matching category names → all matching categories' fields
+//   - "category.key"          — exact match for a specific field
+//   - "profiles.github.key"   — exact field in a dotted category
+//   - "*.key"                 — find a key across all categories
+//   - "category.prefix*"      — glob match within a category
 //
-// The function uses filepath.Match for glob semantics and always excludes
-// _desc fields from results.
+// The function first tries the full pattern as a category name or glob. If no
+// categories match, it splits on the last dot into catPattern + keyPattern for
+// field-level matching. This allows dotted category names (e.g. "profiles.github")
+// to work naturally. The function always excludes _desc fields from results.
 func (db *DB) Query(pattern string) []Field {
 	var results []Field
 
-	// If pattern has no dot, treat it as "category" shorthand for "category.*"
-	if !strings.Contains(pattern, ".") {
-		// Check if this matches a category name exactly
-		for _, cat := range db.Categories {
-			if cat.Name == pattern {
-				for _, f := range cat.Fields {
-					if !IsDescKey(f.Key) {
-						results = append(results, f)
-					}
-				}
-				return results
-			}
+	// Step 1: Try the full pattern as a category name or category glob.
+	// This handles "profiles.github" → all fields, "profiles.*" → all profiles,
+	// "identity" → all identity fields, "*" → everything.
+	var catMatches []Category
+	for _, cat := range db.Categories {
+		if cat.Name == pattern {
+			catMatches = append(catMatches, cat)
+			continue
 		}
-		// If it doesn't match a category, try it as a glob against category names
-		for _, cat := range db.Categories {
-			matched, err := filepath.Match(pattern, cat.Name)
-			if err == nil && matched {
-				for _, f := range cat.Fields {
-					if !IsDescKey(f.Key) {
-						results = append(results, f)
-					}
+		matched, err := filepath.Match(pattern, cat.Name)
+		if err == nil && matched {
+			catMatches = append(catMatches, cat)
+		}
+	}
+	if len(catMatches) > 0 {
+		for _, cat := range catMatches {
+			for _, f := range cat.Fields {
+				if !IsDescKey(f.Key) {
+					results = append(results, f)
 				}
 			}
 		}
 		return results
 	}
 
-	parts := strings.SplitN(pattern, ".", 2)
-	catPattern, keyPattern := parts[0], parts[1]
+	// Step 2: No category match. Split on last dot for field-level query.
+	lastDot := strings.LastIndex(pattern, ".")
+	if lastDot == -1 {
+		return results
+	}
+	catPattern, keyPattern := pattern[:lastDot], pattern[lastDot+1:]
 
 	for _, cat := range db.Categories {
 		catMatched, err := filepath.Match(catPattern, cat.Name)

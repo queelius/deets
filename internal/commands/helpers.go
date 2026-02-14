@@ -26,20 +26,23 @@ func (e *ExitError) Error() string {
 	return fmt.Sprintf("exit code %d", e.Code)
 }
 
-// parsePath splits a "category.key" path and validates both parts are non-empty
-// and contain only valid TOML bare-key characters.
+// parsePath splits a "category.key" path on the LAST dot and validates both
+// parts. The category may contain dots (e.g. "profiles.github") and is
+// validated with ValidateCategoryName; the key must be a single bare key.
 func parsePath(path string) (category, key string, err error) {
-	parts := strings.SplitN(path, ".", 2)
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+	lastDot := strings.LastIndex(path, ".")
+	if lastDot == -1 || lastDot == 0 || lastDot == len(path)-1 {
 		return "", "", fmt.Errorf("invalid path %q: expected category.key", path)
 	}
-	if err := store.ValidateName(parts[0]); err != nil {
+	category = path[:lastDot]
+	key = path[lastDot+1:]
+	if err := store.ValidateCategoryName(category); err != nil {
 		return "", "", fmt.Errorf("invalid path %q: %w", path, err)
 	}
-	if err := store.ValidateName(parts[1]); err != nil {
+	if err := store.ValidateName(key); err != nil {
 		return "", "", fmt.Errorf("invalid path %q: %w", path, err)
 	}
-	return parts[0], parts[1], nil
+	return category, key, nil
 }
 
 // loadDB loads the merged metadata database (global + optional local).

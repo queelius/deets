@@ -135,14 +135,14 @@ func TestRm_FieldLeavesDescOrphaned(t *testing.T) {
 func TestRm_MultiDotPath(t *testing.T) {
 	setupTestDB(t)
 
-	// "a.b.c" → parsePath splits to category="a", key="b.c".
-	// Key "b.c" contains a dot, which fails ValidateName.
+	// "a.b.c" → parsePath splits on last dot to category="a.b", key="c".
+	// This is a valid path, but the category doesn't exist in the test DB.
 	_, _, err := executeCommand("rm", "a.b.c")
 	if err == nil {
-		t.Fatal("expected error for multi-dot path")
+		t.Fatal("expected error for nonexistent dotted category")
 	}
-	if !strings.Contains(err.Error(), "invalid") {
-		t.Errorf("error should mention invalid, got: %v", err)
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("error should mention not found, got: %v", err)
 	}
 }
 

@@ -27,6 +27,36 @@ func TestParsePath_Valid(t *testing.T) {
 	}
 }
 
+func TestParsePath_DottedCategory(t *testing.T) {
+	tests := []struct {
+		path    string
+		wantCat string
+		wantKey string
+		wantErr bool
+	}{
+		{"identity.name", "identity", "name", false},
+		{"profiles.github.username", "profiles.github", "username", false},
+		{"a.b.c", "a.b", "c", false},
+		{"a.b.c.d", "a.b.c", "d", false},
+		{"nokey", "", "", true},
+		{"", "", "", true},
+		{".name", "", "", true},  // empty category
+		{"cat.", "", "", true},   // empty key
+	}
+	for _, tt := range tests {
+		cat, key, err := parsePath(tt.path)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("parsePath(%q) error=%v, wantErr=%v", tt.path, err, tt.wantErr)
+			continue
+		}
+		if !tt.wantErr {
+			if cat != tt.wantCat || key != tt.wantKey {
+				t.Errorf("parsePath(%q) = (%q, %q), want (%q, %q)", tt.path, cat, key, tt.wantCat, tt.wantKey)
+			}
+		}
+	}
+}
+
 func TestParsePath_Invalid(t *testing.T) {
 	tests := []struct {
 		input string
@@ -36,7 +66,6 @@ func TestParsePath_Invalid(t *testing.T) {
 		{".key", "empty category"},
 		{"category.", "empty key"},
 		{"", "empty string"},
-		{"a.b.c", "key contains dot (b.c fails validation)"},
 		{"my category.key", "space in category"},
 		{"cat.my key", "space in key"},
 		{"evil].name", "bracket in category"},
