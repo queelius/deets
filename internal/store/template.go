@@ -107,4 +107,7 @@ var DefaultDescriptions = map[string]map[string]string{
 	"profiles.linkedin": {
 		"url": "LinkedIn profile URL",
 	},
+	"profiles.r-universe": {
+		"url": "R-universe profile URL",
+	},
 }

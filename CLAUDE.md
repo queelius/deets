@@ -22,9 +22,10 @@ go test ./internal/model/ -run TestQuery   # run a single test by name
 
 ```
 cmd/deets/main.go            → minimal entrypoint, calls commands.Execute()
-internal/commands/            → one file per CLI command (get.go, set.go, etc.)
+internal/commands/            → one file per CLI command (get.go, set.go, populate.go, etc.)
   root.go                    → rootCmd + global flags (--format, --local, --quiet)
   helpers.go                 → ExitError, parsePath(), loadDB(), targetFile()
+  populate.go                → deets populate --git/--github/--orcid
 internal/config/              → path resolution (~/.deets/ and local walk-up)
 internal/model/               → DB/Category/Field types, Query(), Search(), formatting
 internal/store/               → TOML Load/Write/Merge, line-level editing, templates
@@ -34,8 +35,17 @@ internal/store/               → TOML Load/Write/Merge, line-level editing, tem
 
 1. **Config** resolves paths: global `~/.deets/me.toml` + local `.deets/me.toml` (found by walking up from cwd, stops before $HOME)
 2. **Store** loads both TOML files into `model.DB`, then merges: local fields override matching global fields per-category, non-overlapping fields from both are preserved
-3. **Model** provides `Query(pattern)` with glob support (`identity.*`, `*.orcid`, `web.git*`) and `Search(query)` for case-insensitive text search across keys, values, and descriptions
+3. **Model** provides `Query(pattern)` with glob support (`profiles.github`, `profiles.*`, `profiles.*.email`, `*.orcid`) and `Search(query)` for case-insensitive text search across keys, values, and descriptions. Query tries the full pattern as a category name/glob first, then splits on the last dot for field-level matching.
 4. **Commands** call `loadDB()` to get the merged DB, then format output (table on TTY, JSON when piped)
+
+### Dotted category names
+
+Category names can contain dots (e.g., `profiles.github`). In TOML, `[profiles.github]` produces nested tables which `LoadFile` flattens into dotted category names. Path resolution splits on the **last** dot: `profiles.github.username` → category `profiles.github`, key `username`.
+
+- `ValidateName(name)` — rejects dots (bare TOML keys only)
+- `ValidateCategoryName(name)` — allows dots between valid bare-key segments
+- `parsePath(path)` — splits on last dot, validates both parts
+- `HasCategory(filePath, name)` — checks if a `[name]` section exists in the TOML file
 
 ### Adding a CLI command
 
