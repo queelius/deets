@@ -58,11 +58,33 @@ var myCmd = &cobra.Command{...}
 
 Use `loadDB()` and `targetFile()` from `helpers.go` for read/write operations. Use `resolveFormat()` and respect `flagLocal`/`flagQuiet` global flags.
 
+### Adding a populate source
+
+Populate sources follow a parse/exec separation pattern for testability:
+
+1. An unexported `populateXxx()` function handles exec (CLI calls, HTTP requests) and returns `[]populateEntry`
+2. A `parseXxxResponse(data []byte)` function handles pure parsing of the response into entries
+3. Add a `--xxx` flag in `populate.go` and wire it into the `RunE` handler and the `--all` block
+
+This lets unit tests call `parseXxxResponse()` with canned JSON without needing real external tools.
+
+## Testing
+
+Test helpers live in `testhelper_test.go` (commands package):
+
+- **`setupTestEnv(t)`** — creates a temp HOME, sets `$HOME`, chdir into it, and **resets all global flags** to defaults. Every command test must call this.
+- **`setupTestDB(t)`** — calls `setupTestEnv` then writes a sample `~/.deets/me.toml` with identity, contact, web, academic, and profiles.github categories.
+- **`executeCommand(args...)`** — runs the cobra root command, captures real `os.Stdout`/`os.Stderr` via pipe redirection (not `cmd.OutOrStdout()`), returns `(stdout, stderr, error)`.
+
+**Critical**: cobra flags are package-level vars (`flagFormat`, `flagLocal`, etc.). `setupTestEnv` resets them all. If you add a new flag, you must add its reset to `setupTestEnv` or tests will leak state between runs.
+
+Populate tests that need `git config` write a `.gitconfig` in the temp HOME for isolation.
+
 ## Key Conventions
 
 - **`_desc` suffix**: Fields like `orcid_desc` hold descriptions and are automatically excluded from query results, show output, and all format functions. Use `model.IsDescKey()` to check.
 - **Line-level TOML editing** (`store/writer.go`): `SetValue`/`RemoveValue`/`RemoveCategory` edit TOML line-by-line to preserve comments and formatting. Never rewrite the entire file through marshal/unmarshal for mutations.
-- **Exit codes**: 0=success, 1=error, 2=key not found
+- **Exit codes**: 0=success, 1=error, 2=key not found. Commands return `*ExitError` which `main.go` unwraps to set the process exit code.
 - **Output heuristic**: `get` prints bare value only for single exact-match results (no globs, format is `table`). Multiple matches → table on TTY, JSON when piped. The `resolveFormat()` function in `root.go` drives format selection.
 - **Ordered output**: `model.DB` keeps categories and fields sorted alphabetically. JSON export uses a custom `orderedMap` type to preserve key order.
 - **Template defaults** (`store/template.go`): `DefaultDescriptions` map provides fallback descriptions when no explicit `_desc` field exists.
