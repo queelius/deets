@@ -19,16 +19,16 @@ func TestGet_BareValue(t *testing.T) {
 	}
 }
 
-func TestGet_JSON(t *testing.T) {
+func TestGet_JSON_BareValue(t *testing.T) {
 	setupTestDB(t)
 	flagFormat = "json"
 	stdout, _, err := executeCommand("get", "identity.name")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// JSON format for single exact match still returns grouped JSON
-	if !json.Valid([]byte(strings.TrimSpace(stdout))) {
-		t.Errorf("expected valid JSON, got %q", stdout)
+	// Single exact field with --format json now returns bare value (not JSON)
+	if strings.TrimSpace(stdout) != "Alexander Towell" {
+		t.Errorf("expected bare value, got %q", stdout)
 	}
 }
 
@@ -181,5 +181,79 @@ func TestGet_GlobPattern(t *testing.T) {
 	}
 	if !strings.Contains(stdout, "0000-0001-2345-6789") {
 		t.Errorf("expected orcid value in output, got %q", stdout)
+	}
+}
+
+// --- Multi-path tests ---
+
+func TestGet_MultiPath(t *testing.T) {
+	setupTestDB(t)
+	flagFormat = "json"
+	stdout, _, err := executeCommand("get", "identity.name", "contact.email")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Multi-path always returns structured output
+	if !json.Valid([]byte(strings.TrimSpace(stdout))) {
+		t.Fatalf("expected valid JSON, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "Alexander Towell") {
+		t.Errorf("expected name in output, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "alex@example.com") {
+		t.Errorf("expected email in output, got %q", stdout)
+	}
+}
+
+func TestGet_MultiPath_OneNotFound(t *testing.T) {
+	setupTestDB(t)
+	flagFormat = "json"
+	_, _, err := executeCommand("get", "identity.name", "nonexistent.field")
+	if err == nil {
+		t.Fatal("expected error when one path not found")
+	}
+	var exitErr *ExitError
+	if !errors.As(err, &exitErr) || exitErr.Code != 2 {
+		t.Errorf("expected ExitError with code 2, got %v", err)
+	}
+}
+
+func TestGet_MultiPath_Default(t *testing.T) {
+	setupTestDB(t)
+	flagFormat = "json"
+	stdout, _, err := executeCommand("get", "identity.name", "nonexistent.field", "--default", "N/A")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(stdout, "Alexander Towell") {
+		t.Errorf("expected name in output, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "N/A") {
+		t.Errorf("expected default value in output, got %q", stdout)
+	}
+}
+
+func TestGet_MultiPath_Exists_AllFound(t *testing.T) {
+	setupTestDB(t)
+	flagFormat = "table"
+	stdout, _, err := executeCommand("get", "identity.name", "contact.email", "--exists")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stdout != "" {
+		t.Errorf("--exists should produce no output, got %q", stdout)
+	}
+}
+
+func TestGet_MultiPath_Exists_OneMissing(t *testing.T) {
+	setupTestDB(t)
+	flagFormat = "table"
+	_, _, err := executeCommand("get", "identity.name", "nonexistent.field", "--exists")
+	if err == nil {
+		t.Fatal("expected error when one path missing with --exists")
+	}
+	var exitErr *ExitError
+	if !errors.As(err, &exitErr) || exitErr.Code != 2 {
+		t.Errorf("expected ExitError with code 2, got %v", err)
 	}
 }

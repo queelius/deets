@@ -7,7 +7,18 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
+
+// resetFlagChanged clears the "Changed" state on all flags of a command,
+// preventing flag state from leaking between tests.
+func resetFlagChanged(cmd *cobra.Command) {
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		f.Changed = false
+	})
+}
 
 // executeCommand runs a cobra command with the given args and captures output.
 // It captures actual os.Stdout and os.Stderr since commands use fmt.Print*
@@ -82,6 +93,13 @@ func setupTestEnv(t *testing.T) string {
 	flagPopulateAll = false
 	flagPopulateDryRun = false
 	flagPopulateYes = false
+
+	// Reset cobra's "Changed" state on all flags so that
+	// cmd.Flags().Changed("default") doesn't leak between tests.
+	resetFlagChanged(rootCmd)
+	for _, sub := range rootCmd.Commands() {
+		resetFlagChanged(sub)
+	}
 
 	return home
 }

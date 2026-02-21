@@ -22,61 +22,87 @@ func init() {
 }
 
 var getCmd = &cobra.Command{
-	Use:   "get <path>",
+	Use:   "get <path> [path...]",
 	Short: "Get a metadata value",
-	Long: `Get a metadata value by path. Supports glob patterns.
+	Long: `Get one or more metadata values by path. Supports glob patterns.
 
 Examples:
-  deets get identity.name          # single value
+  deets get identity.name          # single value (bare output)
   deets get academic               # all fields in category
   deets get *.orcid                # find key across categories
   deets get identity.na*           # glob within category
   deets get identity.name --desc   # include description
   deets get foo.bar --default x    # return "x" if not found
-  deets get foo.bar --exists       # exit 0/2, no output`,
-	Args: cobra.ExactArgs(1),
+  deets get foo.bar --exists       # exit 0/2, no output
+
+  # Multiple paths in one call
+  deets get identity.name contact.email academic.orcid`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		db, err := loadDB()
 		if err != nil {
 			return err
 		}
 
-		pattern := args[0]
-		fields := db.Query(pattern)
+		multiPath := len(args) > 1
 
-		// --exists: pure existence check, no output
-		if flagGetExists {
-			if len(fields) == 0 {
-				return &ExitError{Code: 2, Message: ""}
+		// Collect fields from all paths
+		var fields []model.Field
+		for _, pattern := range args {
+			matched := db.Query(pattern)
+
+			if len(matched) == 0 {
+				// --exists: any missing path → exit 2
+				if flagGetExists {
+					return &ExitError{Code: 2, Message: ""}
+				}
+
+				// --default: synthesize a field with the default value
+				if cmd.Flags().Changed("default") {
+					cat, key := "", pattern
+					if dot := strings.LastIndex(pattern, "."); dot != -1 {
+						cat, key = pattern[:dot], pattern[dot+1:]
+					}
+					fields = append(fields, model.Field{
+						Category: cat,
+						Key:      key,
+						Value:    flagGetDefault,
+					})
+					continue
+				}
+
+				// No match, no default → error
+				if strings.Contains(pattern, ".") && !strings.ContainsAny(pattern, "*?[") {
+					return &ExitError{Code: 2, Message: fmt.Sprintf("field not found: %s", pattern)}
+				}
+				return &ExitError{Code: 2, Message: fmt.Sprintf("no matches for: %s", pattern)}
 			}
+
+			fields = append(fields, matched...)
+		}
+
+		// --exists with all paths found: success, no output
+		if flagGetExists {
 			return nil
 		}
 
-		if len(fields) == 0 {
-			// --default: return default value on no match
-			if cmd.Flags().Changed("default") {
-				fmt.Println(flagGetDefault)
+		// Single-path bare value: exact field path with one result
+		if !multiPath {
+			pattern := args[0]
+			isExactField := strings.Contains(pattern, ".") && !strings.ContainsAny(pattern, "*?[")
+			format := resolveFormat()
+			if len(fields) == 1 && isExactField && (format == "table" || format == "json") {
+				if flagGetDesc {
+					fmt.Printf("%s\t%s\n", model.FormatValue(fields[0].Value), fields[0].Desc)
+				} else {
+					fmt.Println(model.FormatValue(fields[0].Value))
+				}
 				return nil
 			}
-			if strings.Contains(pattern, ".") && !strings.ContainsAny(pattern, "*?[") {
-				return &ExitError{Code: 2, Message: fmt.Sprintf("field not found: %s", pattern)}
-			}
-			return &ExitError{Code: 2, Message: fmt.Sprintf("no matches for: %s", pattern)}
 		}
 
-		// Use bare value only for exact field paths (no globs, no category-only)
-		isExactField := strings.Contains(pattern, ".") && !strings.ContainsAny(pattern, "*?[")
+		// Structured output
 		format := resolveFormat()
-		if len(fields) == 1 && isExactField && format == "table" {
-			if flagGetDesc {
-				fmt.Printf("%s\t%s\n", model.FormatValue(fields[0].Value), fields[0].Desc)
-			} else {
-				fmt.Println(model.FormatValue(fields[0].Value))
-			}
-			return nil
-		}
-
-		// Multiple results or explicit format
 		switch format {
 		case "json":
 			var out string
