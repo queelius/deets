@@ -215,23 +215,20 @@ func TestPopulateGitHub_Mapping(t *testing.T) {
 	for _, e := range entries {
 		found[e.category+"."+e.key] = e.value
 	}
-	if found["profiles.github.username"] != "alice" {
-		t.Errorf("expected username=alice, got %q", found["profiles.github.username"])
+	if found["web.handle"] != "alice" {
+		t.Errorf("expected handle=alice, got %q", found["web.handle"])
 	}
-	if found["profiles.github.name"] != "Alice Smith" {
-		t.Errorf("expected name='Alice Smith', got %q", found["profiles.github.name"])
+	if found["platforms.github.name"] != "Alice Smith" {
+		t.Errorf("expected name='Alice Smith', got %q", found["platforms.github.name"])
 	}
-	if found["profiles.github.email"] != "alice@gh.com" {
-		t.Errorf("expected email, got %q", found["profiles.github.email"])
+	if found["platforms.github.url"] != "https://github.com/alice" {
+		t.Errorf("expected url, got %q", found["platforms.github.url"])
 	}
-	if found["profiles.github.url"] != "https://github.com/alice" {
-		t.Errorf("expected url, got %q", found["profiles.github.url"])
+	if found["platforms.github.bio"] != "Developer" {
+		t.Errorf("expected bio, got %q", found["platforms.github.bio"])
 	}
-	if found["profiles.github.bio"] != "Developer" {
-		t.Errorf("expected bio, got %q", found["profiles.github.bio"])
-	}
-	if found["profiles.blog.url"] != "https://alice.dev" {
-		t.Errorf("expected blog url, got %q", found["profiles.blog.url"])
+	if found["platforms.blog.url"] != "https://alice.dev" {
+		t.Errorf("expected blog url, got %q", found["platforms.blog.url"])
 	}
 	// Also populates identity and contact
 	if found["identity.name"] != "Alice Smith" {
@@ -253,20 +250,17 @@ func TestPopulateGitHub_PartialData(t *testing.T) {
 	for _, e := range entries {
 		found[e.category+"."+e.key] = e.value
 	}
-	if found["profiles.github.username"] != "alice" {
-		t.Errorf("expected username=alice, got %q", found["profiles.github.username"])
+	if found["web.handle"] != "alice" {
+		t.Errorf("expected handle=alice, got %q", found["web.handle"])
 	}
 	// No name, email, bio, blog -> should NOT be in entries
-	if _, ok := found["profiles.github.name"]; ok {
+	if _, ok := found["platforms.github.name"]; ok {
 		t.Error("empty name should not produce an entry")
 	}
-	if _, ok := found["profiles.github.email"]; ok {
-		t.Error("empty email should not produce an entry")
-	}
-	if _, ok := found["profiles.github.bio"]; ok {
+	if _, ok := found["platforms.github.bio"]; ok {
 		t.Error("empty bio should not produce an entry")
 	}
-	if _, ok := found["profiles.blog.url"]; ok {
+	if _, ok := found["platforms.blog.url"]; ok {
 		t.Error("empty blog should not produce an entry")
 	}
 	// identity.name and contact.email should also be absent
@@ -296,17 +290,17 @@ func TestPopulateGitHub_EmptyJSON(t *testing.T) {
 }
 
 func TestPopulateGitHub_EntryCount(t *testing.T) {
-	// Full profile should produce exactly 8 entries:
-	// profiles.github.username, profiles.github.name, identity.name,
-	// profiles.github.email, contact.email, profiles.github.url,
-	// profiles.github.bio, profiles.blog.url
+	// Full profile should produce exactly 7 entries:
+	// web.handle, platforms.github.name, identity.name,
+	// contact.email, platforms.github.url,
+	// platforms.github.bio, platforms.blog.url
 	ghJSON := `{"login":"alice","name":"Alice","email":"a@b.com","bio":"Dev","blog":"https://a.dev","html_url":"https://github.com/alice"}`
 	entries, err := parseGitHubUser([]byte(ghJSON))
 	if err != nil {
 		t.Fatalf("parseGitHubUser: %v", err)
 	}
-	if len(entries) != 8 {
-		t.Errorf("expected 8 entries for full profile, got %d", len(entries))
+	if len(entries) != 7 {
+		t.Errorf("expected 7 entries for full profile, got %d", len(entries))
 		for _, e := range entries {
 			t.Logf("  %s.%s = %s", e.category, e.key, e.value)
 		}
@@ -325,17 +319,14 @@ func TestPopulateOrcid_Mapping(t *testing.T) {
 	for _, e := range entries {
 		found[e.category+"."+e.key] = e.value
 	}
-	if found["profiles.orcid.name"] != "Alice Smith" {
-		t.Errorf("expected name='Alice Smith', got %q", found["profiles.orcid.name"])
+	if found["identity.name"] != "Alice Smith" {
+		t.Errorf("expected name='Alice Smith', got %q", found["identity.name"])
 	}
-	if found["profiles.orcid.id"] != "0000-0001-2345-6789" {
-		t.Errorf("expected id, got %q", found["profiles.orcid.id"])
+	if found["academic.orcid"] != "0000-0001-2345-6789" {
+		t.Errorf("expected orcid, got %q", found["academic.orcid"])
 	}
-	if found["profiles.orcid.url"] != "https://orcid.org/0000-0001-2345-6789" {
-		t.Errorf("expected url, got %q", found["profiles.orcid.url"])
-	}
-	if found["profiles.orcid.email"] != "alice@university.edu" {
-		t.Errorf("expected email, got %q", found["profiles.orcid.email"])
+	if found["platforms.orcid.url"] != "https://orcid.org/0000-0001-2345-6789" {
+		t.Errorf("expected url, got %q", found["platforms.orcid.url"])
 	}
 }
 
@@ -370,16 +361,16 @@ func TestPopulateOrcid_EmptyName(t *testing.T) {
 			t.Error("should not have name entry when both given and family names are empty")
 		}
 	}
-	// Should still have id and url
+	// Should still have orcid and url
 	found := make(map[string]string)
 	for _, e := range entries {
 		found[e.category+"."+e.key] = e.value
 	}
-	if found["profiles.orcid.id"] != "0000-0001-2345-6789" {
-		t.Errorf("expected id even with empty name, got %q", found["profiles.orcid.id"])
+	if found["academic.orcid"] != "0000-0001-2345-6789" {
+		t.Errorf("expected orcid even with empty name, got %q", found["academic.orcid"])
 	}
-	if found["profiles.orcid.url"] != "https://orcid.org/0000-0001-2345-6789" {
-		t.Errorf("expected url even with empty name, got %q", found["profiles.orcid.url"])
+	if found["platforms.orcid.url"] != "https://orcid.org/0000-0001-2345-6789" {
+		t.Errorf("expected url even with empty name, got %q", found["platforms.orcid.url"])
 	}
 }
 
@@ -393,20 +384,20 @@ func TestPopulateOrcid_GivenNameOnly(t *testing.T) {
 	for _, e := range entries {
 		found[e.category+"."+e.key] = e.value
 	}
-	if found["profiles.orcid.name"] != "Alice" {
-		t.Errorf("expected name='Alice', got %q", found["profiles.orcid.name"])
+	if found["identity.name"] != "Alice" {
+		t.Errorf("expected name='Alice', got %q", found["identity.name"])
 	}
 }
 
 func TestPopulateOrcid_EntryCount(t *testing.T) {
-	// Full profile: name, id, url, email = 4 entries
+	// Full profile: identity.name, academic.orcid, platforms.orcid.url = 3 entries
 	orcidJSON := `{"name":{"given-names":{"value":"Alice"},"family-name":{"value":"Smith"}},"emails":{"email":[{"email":"alice@uni.edu"}]}}`
 	entries, err := parseOrcidPerson([]byte(orcidJSON), "0000-0001-2345-6789")
 	if err != nil {
 		t.Fatalf("parseOrcidPerson: %v", err)
 	}
-	if len(entries) != 4 {
-		t.Errorf("expected 4 entries for full profile, got %d", len(entries))
+	if len(entries) != 3 {
+		t.Errorf("expected 3 entries for full profile, got %d", len(entries))
 		for _, e := range entries {
 			t.Logf("  %s.%s = %s", e.category, e.key, e.value)
 		}
@@ -414,7 +405,7 @@ func TestPopulateOrcid_EntryCount(t *testing.T) {
 }
 
 func TestPopulateOrcid_MinimalProfile(t *testing.T) {
-	// Minimal: just empty name and no email -> id and url only = 2 entries
+	// Minimal: just empty name and no email -> academic.orcid and platforms.orcid.url = 2 entries
 	orcidJSON := `{"name":{"given-names":{"value":""},"family-name":{"value":""}},"emails":{"email":[]}}`
 	entries, err := parseOrcidPerson([]byte(orcidJSON), "0000-0001-2345-6789")
 	if err != nil {

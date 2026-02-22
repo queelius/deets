@@ -122,7 +122,7 @@ func TestSearch_FormatEnv(t *testing.T) {
 func TestSearch_MultipleMatches(t *testing.T) {
 	setupTestDB(t)
 	flagFormat = "table"
-	// "example" appears in email and website
+	// "example" appears in email and domains
 	stdout, _, err := executeCommand("search", "example")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -130,8 +130,8 @@ func TestSearch_MultipleMatches(t *testing.T) {
 	if !strings.Contains(stdout, "alex@example.com") {
 		t.Errorf("expected email in results, got %q", stdout)
 	}
-	if !strings.Contains(stdout, "https://example.com") {
-		t.Errorf("expected website in results, got %q", stdout)
+	if !strings.Contains(stdout, "example.com") {
+		t.Errorf("expected domains in results, got %q", stdout)
 	}
 }
 

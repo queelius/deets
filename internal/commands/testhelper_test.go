@@ -125,9 +125,9 @@ email = "alex@example.com"
 email_desc = "Primary email"
 
 [web]
-github = "queelius"
-github_desc = "GitHub username"
-website = "https://example.com"
+handle = "queelius"
+handle_desc = "Primary username"
+domains = ["example.com"]
 
 [academic]
 orcid = "0000-0001-2345-6789"
@@ -135,8 +135,8 @@ orcid_desc = "ORCID persistent digital identifier"
 gpa = 3.95
 topics = ["statistics", "machine learning"]
 
-[profiles.github]
-username = "queelius"
+[platforms.github]
+url = "https://github.com/queelius"
 `
 	if err := os.WriteFile(filepath.Join(deetsDir, "me.toml"), []byte(toml), 0644); err != nil {
 		t.Fatalf("writing test TOML: %v", err)

@@ -20,8 +20,8 @@ var rmCmd = &cobra.Command{
 Examples:
   deets rm contact.phone         # remove a field
   deets rm cooking               # remove entire category
-  deets rm profiles.github       # remove a dotted category
-  deets rm profiles.github.email # remove a field in dotted category`,
+  deets rm platforms.github       # remove a dotted category
+  deets rm platforms.github.bio  # remove a field in dotted category`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path := args[0]

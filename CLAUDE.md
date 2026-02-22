@@ -35,12 +35,12 @@ internal/store/               → TOML Load/Write/Merge, line-level editing, tem
 
 1. **Config** resolves paths: global `~/.deets/me.toml` + local `.deets/me.toml` (found by walking up from cwd, stops before $HOME)
 2. **Store** loads both TOML files into `model.DB`, then merges: local fields override matching global fields per-category, non-overlapping fields from both are preserved
-3. **Model** provides `Query(pattern)` with glob support (`profiles.github`, `profiles.*`, `profiles.*.email`, `*.orcid`) and `Search(query)` for case-insensitive text search across keys, values, and descriptions. Query tries the full pattern as a category name/glob first, then splits on the last dot for field-level matching.
+3. **Model** provides `Query(pattern)` with glob support (`platforms.github`, `platforms.*`, `platforms.*.url`, `*.orcid`) and `Search(query)` for case-insensitive text search across keys, values, and descriptions. Query tries the full pattern as a category name/glob first, then splits on the last dot for field-level matching.
 4. **Commands** call `loadDB()` to get the merged DB, then format output (table on TTY, JSON when piped)
 
 ### Dotted category names
 
-Category names can contain dots (e.g., `profiles.github`). In TOML, `[profiles.github]` produces nested tables which `LoadFile` flattens into dotted category names. Path resolution splits on the **last** dot: `profiles.github.username` → category `profiles.github`, key `username`.
+Category names can contain dots (e.g., `platforms.github`). In TOML, `[platforms.github]` produces nested tables which `LoadFile` flattens into dotted category names. Path resolution splits on the **last** dot: `platforms.github.url` → category `platforms.github`, key `url`.
 
 - `ValidateName(name)` — rejects dots (bare TOML keys only)
 - `ValidateCategoryName(name)` — allows dots between valid bare-key segments
@@ -73,7 +73,7 @@ This lets unit tests call `parseXxxResponse()` with canned JSON without needing 
 Test helpers live in `testhelper_test.go` (commands package):
 
 - **`setupTestEnv(t)`** — creates a temp HOME, sets `$HOME`, chdir into it, and **resets all global flags** to defaults. Every command test must call this.
-- **`setupTestDB(t)`** — calls `setupTestEnv` then writes a sample `~/.deets/me.toml` with identity, contact, web, academic, and profiles.github categories.
+- **`setupTestDB(t)`** — calls `setupTestEnv` then writes a sample `~/.deets/me.toml` with identity, contact, web, academic, and platforms.github categories.
 - **`executeCommand(args...)`** — runs the cobra root command, captures real `os.Stdout`/`os.Stderr` via pipe redirection (not `cmd.OutOrStdout()`), returns `(stdout, stderr, error)`.
 
 **Critical**: cobra flags are package-level vars (`flagFormat`, `flagLocal`, etc.). `setupTestEnv` resets them all. If you add a new flag, you must add its reset to `setupTestEnv` or tests will leak state between runs.

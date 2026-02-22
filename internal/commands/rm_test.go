@@ -173,17 +173,17 @@ func TestRm_DottedCategory(t *testing.T) {
 	home := setupTestEnv(t)
 	deetsDir := filepath.Join(home, ".deets")
 	os.MkdirAll(deetsDir, 0755)
-	toml := "[identity]\nname = \"Alice\"\n\n[profiles.github]\nusername = \"alice\"\n"
+	toml := "[identity]\nname = \"Alice\"\n\n[platforms.github]\nurl = \"https://github.com/alice\"\n"
 	os.WriteFile(filepath.Join(deetsDir, "me.toml"), []byte(toml), 0644)
 
-	_, _, err := executeCommand("rm", "profiles.github")
+	_, _, err := executeCommand("rm", "platforms.github")
 	if err != nil {
-		t.Fatalf("rm profiles.github failed: %v", err)
+		t.Fatalf("rm platforms.github failed: %v", err)
 	}
 
 	data, _ := os.ReadFile(filepath.Join(deetsDir, "me.toml"))
-	if strings.Contains(string(data), "profiles.github") {
-		t.Errorf("expected profiles.github removed, got:\n%s", string(data))
+	if strings.Contains(string(data), "platforms.github") {
+		t.Errorf("expected platforms.github removed, got:\n%s", string(data))
 	}
 	if !strings.Contains(string(data), "[identity]") {
 		t.Errorf("expected identity preserved, got:\n%s", string(data))
@@ -194,19 +194,19 @@ func TestRm_DottedCategoryField(t *testing.T) {
 	home := setupTestEnv(t)
 	deetsDir := filepath.Join(home, ".deets")
 	os.MkdirAll(deetsDir, 0755)
-	toml := "[profiles.github]\nusername = \"alice\"\nemail = \"a@gh.com\"\n"
+	toml := "[platforms.github]\nurl = \"https://github.com/alice\"\nbio = \"Developer\"\n"
 	os.WriteFile(filepath.Join(deetsDir, "me.toml"), []byte(toml), 0644)
 
-	_, _, err := executeCommand("rm", "profiles.github.email")
+	_, _, err := executeCommand("rm", "platforms.github.bio")
 	if err != nil {
-		t.Fatalf("rm profiles.github.email failed: %v", err)
+		t.Fatalf("rm platforms.github.bio failed: %v", err)
 	}
 
 	data, _ := os.ReadFile(filepath.Join(deetsDir, "me.toml"))
-	if strings.Contains(string(data), "email") {
-		t.Errorf("expected email removed, got:\n%s", string(data))
+	if strings.Contains(string(data), "bio") {
+		t.Errorf("expected bio removed, got:\n%s", string(data))
 	}
-	if !strings.Contains(string(data), "username") {
-		t.Errorf("expected username preserved, got:\n%s", string(data))
+	if !strings.Contains(string(data), "url") {
+		t.Errorf("expected url preserved, got:\n%s", string(data))
 	}
 }

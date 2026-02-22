@@ -27,7 +27,7 @@ func (e *ExitError) Error() string {
 }
 
 // parsePath splits a "category.key" path on the LAST dot and validates both
-// parts. The category may contain dots (e.g. "profiles.github") and is
+// parts. The category may contain dots (e.g. "platforms.github") and is
 // validated with ValidateCategoryName; the key must be a single bare key.
 func parsePath(path string) (category, key string, err error) {
 	lastDot := strings.LastIndex(path, ".")

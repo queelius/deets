@@ -222,26 +222,23 @@ func parseGitHubUser(data []byte) ([]populateEntry, error) {
 	var entries []populateEntry
 
 	if user.Login != "" {
-		entries = append(entries, populateEntry{"profiles.github", "username", user.Login})
+		entries = append(entries, populateEntry{"web", "handle", user.Login})
 	}
 	if user.Name != "" {
-		entries = append(entries, populateEntry{"profiles.github", "name", user.Name})
-		// Also suggest for identity.name if not empty
+		entries = append(entries, populateEntry{"platforms.github", "name", user.Name})
 		entries = append(entries, populateEntry{"identity", "name", user.Name})
 	}
 	if user.Email != "" {
-		entries = append(entries, populateEntry{"profiles.github", "email", user.Email})
-		// Also suggest for contact.email
 		entries = append(entries, populateEntry{"contact", "email", user.Email})
 	}
 	if user.HTMLURL != "" {
-		entries = append(entries, populateEntry{"profiles.github", "url", user.HTMLURL})
+		entries = append(entries, populateEntry{"platforms.github", "url", user.HTMLURL})
 	}
 	if user.Bio != "" {
-		entries = append(entries, populateEntry{"profiles.github", "bio", user.Bio})
+		entries = append(entries, populateEntry{"platforms.github", "bio", user.Bio})
 	}
 	if user.Blog != "" {
-		entries = append(entries, populateEntry{"profiles.blog", "url", user.Blog})
+		entries = append(entries, populateEntry{"platforms.blog", "url", user.Blog})
 	}
 
 	return entries, nil
@@ -316,15 +313,11 @@ func parseOrcidPerson(data []byte, orcid string) ([]populateEntry, error) {
 	family := person.Name.FamilyName.Value
 	if given != "" || family != "" {
 		fullName := strings.TrimSpace(given + " " + family)
-		entries = append(entries, populateEntry{"profiles.orcid", "name", fullName})
+		entries = append(entries, populateEntry{"identity", "name", fullName})
 	}
 
-	entries = append(entries, populateEntry{"profiles.orcid", "id", orcid})
-	entries = append(entries, populateEntry{"profiles.orcid", "url", "https://orcid.org/" + orcid})
-
-	if len(person.Emails.Email) > 0 && person.Emails.Email[0].Email != "" {
-		entries = append(entries, populateEntry{"profiles.orcid", "email", person.Emails.Email[0].Email})
-	}
+	entries = append(entries, populateEntry{"academic", "orcid", orcid})
+	entries = append(entries, populateEntry{"platforms.orcid", "url", "https://orcid.org/" + orcid})
 
 	return entries, nil
 }

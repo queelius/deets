@@ -29,7 +29,7 @@ func TestDefaultTemplate_IsValidTOML(t *testing.T) {
 	}
 
 	// Verify expected sections exist in the stripped template.
-	expectedSections := []string{"identity", "contact", "academic", "education", "profiles"}
+	expectedSections := []string{"identity", "contact", "academic", "web", "platforms"}
 	for _, section := range expectedSections {
 		if _, ok := raw[section]; !ok {
 			t.Errorf("expected section %q in DefaultTemplate", section)
@@ -44,7 +44,7 @@ func TestDefaultTemplate_IsNotEmpty(t *testing.T) {
 }
 
 func TestDefaultTemplate_ContainsExpectedSections(t *testing.T) {
-	expectedSections := []string{"[identity]", "[contact]", "[academic]", "[education]", "[profiles.github]", "[profiles.pypi]", "[profiles.orcid]"}
+	expectedSections := []string{"[identity]", "[contact]", "[academic]", "[web]", "[platforms.github]", "[platforms.pypi]", "[platforms.orcid]"}
 	for _, section := range expectedSections {
 		if !strings.Contains(DefaultTemplate, section) {
 			t.Errorf("DefaultTemplate should contain %q", section)
@@ -77,10 +77,11 @@ func TestLocalTemplate_ContainsOverrideInstruction(t *testing.T) {
 
 func TestDefaultDescriptions_HasExpectedCategories(t *testing.T) {
 	expectedCategories := []string{
-		"identity", "contact", "academic", "education",
-		"profiles.github", "profiles.pypi", "profiles.cran",
-		"profiles.orcid", "profiles.bluesky", "profiles.mastodon",
-		"profiles.blog", "profiles.zenodo", "profiles.linkedin",
+		"identity", "contact", "academic", "web",
+		"platforms.github", "platforms.pypi", "platforms.cran",
+		"platforms.orcid", "platforms.bluesky", "platforms.mastodon",
+		"platforms.blog", "platforms.zenodo", "platforms.linkedin",
+		"platforms.r-universe",
 	}
 	for _, cat := range expectedCategories {
 		if _, ok := DefaultDescriptions[cat]; !ok {
@@ -95,44 +96,36 @@ func TestDefaultDescriptions_HasExpectedKeys(t *testing.T) {
 		key      string
 	}{
 		{"identity", "name"},
+		{"identity", "canonical_name"},
 		{"identity", "aka"},
 		{"identity", "pronouns"},
 		{"contact", "email"},
+		{"contact", "emails"},
 		{"contact", "phone"},
 		{"academic", "orcid"},
 		{"academic", "institution"},
 		{"academic", "title"},
 		{"academic", "research_interests"},
 		{"academic", "scholar"},
-		{"education", "degrees"},
-		{"education", "field"},
-		{"education", "institution"},
-		{"education", "phd"},
-		{"education", "phd_institution"},
-		{"profiles.github", "username"},
-		{"profiles.github", "name"},
-		{"profiles.github", "email"},
-		{"profiles.github", "url"},
-		{"profiles.github", "bio"},
-		{"profiles.pypi", "username"},
-		{"profiles.pypi", "name"},
-		{"profiles.pypi", "email"},
-		{"profiles.pypi", "url"},
-		{"profiles.cran", "name"},
-		{"profiles.cran", "email"},
-		{"profiles.orcid", "id"},
-		{"profiles.orcid", "name"},
-		{"profiles.orcid", "email"},
-		{"profiles.orcid", "url"},
-		{"profiles.bluesky", "handle"},
-		{"profiles.bluesky", "url"},
-		{"profiles.mastodon", "handle"},
-		{"profiles.mastodon", "url"},
-		{"profiles.blog", "url"},
-		{"profiles.blog", "alt"},
-		{"profiles.zenodo", "username"},
-		{"profiles.zenodo", "url"},
-		{"profiles.linkedin", "url"},
+		{"academic", "degrees"},
+		{"academic", "phd"},
+		{"academic", "phd_institution"},
+		{"web", "handle"},
+		{"web", "domains"},
+		{"platforms.github", "url"},
+		{"platforms.github", "name"},
+		{"platforms.github", "bio"},
+		{"platforms.orcid", "url"},
+		{"platforms.pypi", "url"},
+		{"platforms.bluesky", "handle"},
+		{"platforms.bluesky", "url"},
+		{"platforms.mastodon", "handle"},
+		{"platforms.mastodon", "url"},
+		{"platforms.blog", "url"},
+		{"platforms.blog", "alt"},
+		{"platforms.zenodo", "url"},
+		{"platforms.linkedin", "url"},
+		{"platforms.r-universe", "url"},
 	}
 
 	for _, tc := range tests {
@@ -193,20 +186,20 @@ func TestDefaultDescriptions_ContactCategoryContents(t *testing.T) {
 	}
 }
 
-func TestDefaultDescriptions_ProfilesGitHubCategoryContents(t *testing.T) {
-	gh, ok := DefaultDescriptions["profiles.github"]
+func TestDefaultDescriptions_PlatformsGitHubCategoryContents(t *testing.T) {
+	gh, ok := DefaultDescriptions["platforms.github"]
 	if !ok {
-		t.Fatal("missing 'profiles.github' in DefaultDescriptions")
+		t.Fatal("missing 'platforms.github' in DefaultDescriptions")
 	}
 
-	if gh["username"] != "GitHub username" {
-		t.Errorf("expected profiles.github.username = 'GitHub username', got %q", gh["username"])
-	}
 	if gh["url"] != "GitHub profile URL" {
-		t.Errorf("expected profiles.github.url = 'GitHub profile URL', got %q", gh["url"])
+		t.Errorf("expected platforms.github.url = 'GitHub profile URL', got %q", gh["url"])
 	}
 	if gh["bio"] != "GitHub profile bio" {
-		t.Errorf("expected profiles.github.bio = 'GitHub profile bio', got %q", gh["bio"])
+		t.Errorf("expected platforms.github.bio = 'GitHub profile bio', got %q", gh["bio"])
+	}
+	if gh["name"] != "Display name on GitHub" {
+		t.Errorf("expected platforms.github.name = 'Display name on GitHub', got %q", gh["name"])
 	}
 }
 
@@ -227,25 +220,33 @@ func TestDefaultDescriptions_AcademicCategoryContents(t *testing.T) {
 	}
 }
 
-func TestDefaultDescriptions_EducationCategoryContents(t *testing.T) {
-	education, ok := DefaultDescriptions["education"]
+func TestDefaultDescriptions_AcademicMergedEducationContents(t *testing.T) {
+	academic, ok := DefaultDescriptions["academic"]
 	if !ok {
-		t.Fatal("missing 'education' in DefaultDescriptions")
+		t.Fatal("missing 'academic' in DefaultDescriptions")
 	}
 
-	if education["degrees"] != "Completed degrees with institution and year" {
-		t.Errorf("expected education.degrees = 'Completed degrees with institution and year', got %q", education["degrees"])
+	if academic["degrees"] != "Completed degrees with institution and year" {
+		t.Errorf("expected academic.degrees = 'Completed degrees with institution and year', got %q", academic["degrees"])
 	}
-	if education["field"] != "Primary field of study" {
-		t.Errorf("expected education.field = 'Primary field of study', got %q", education["field"])
+	if academic["phd"] != "PhD field of study" {
+		t.Errorf("expected academic.phd = 'PhD field of study', got %q", academic["phd"])
 	}
-	if education["institution"] != "Degree-granting institution" {
-		t.Errorf("expected education.institution = 'Degree-granting institution', got %q", education["institution"])
+	if academic["phd_institution"] != "PhD institution" {
+		t.Errorf("expected academic.phd_institution = 'PhD institution', got %q", academic["phd_institution"])
 	}
-	if education["phd"] != "PhD field of study" {
-		t.Errorf("expected education.phd = 'PhD field of study', got %q", education["phd"])
+}
+
+func TestDefaultDescriptions_WebCategoryContents(t *testing.T) {
+	web, ok := DefaultDescriptions["web"]
+	if !ok {
+		t.Fatal("missing 'web' in DefaultDescriptions")
 	}
-	if education["phd_institution"] != "PhD institution" {
-		t.Errorf("expected education.phd_institution = 'PhD institution', got %q", education["phd_institution"])
+
+	if web["handle"] != "Primary username/handle across platforms" {
+		t.Errorf("expected web.handle = 'Primary username/handle across platforms', got %q", web["handle"])
+	}
+	if web["domains"] != "Personal domains" {
+		t.Errorf("expected web.domains = 'Personal domains', got %q", web["domains"])
 	}
 }

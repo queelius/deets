@@ -948,52 +948,52 @@ func TestSetValue_DottedCategory(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "me.toml")
 
-	err := SetValue(path, "profiles.github", "username", "queelius")
+	err := SetValue(path, "platforms.github", "url", "https://github.com/queelius")
 	if err != nil {
 		t.Fatalf("SetValue with dotted category failed: %v", err)
 	}
 
 	data, _ := os.ReadFile(path)
 	content := string(data)
-	if !strings.Contains(content, "[profiles.github]") {
-		t.Errorf("expected [profiles.github] section header, got:\n%s", content)
+	if !strings.Contains(content, "[platforms.github]") {
+		t.Errorf("expected [platforms.github] section header, got:\n%s", content)
 	}
-	if !strings.Contains(content, `username = "queelius"`) {
-		t.Errorf("expected username field, got:\n%s", content)
+	if !strings.Contains(content, `url = "https://github.com/queelius"`) {
+		t.Errorf("expected url field, got:\n%s", content)
 	}
 }
 
 func TestRemoveValue_DottedCategory(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "me.toml")
-	content := "[profiles.github]\nusername = \"queelius\"\nemail = \"q@g.com\"\n"
+	content := "[platforms.github]\nurl = \"https://github.com/queelius\"\nbio = \"Developer\"\n"
 	os.WriteFile(path, []byte(content), 0644)
 
-	err := RemoveValue(path, "profiles.github", "email")
+	err := RemoveValue(path, "platforms.github", "bio")
 	if err != nil {
 		t.Fatalf("RemoveValue with dotted category failed: %v", err)
 	}
 
 	data, _ := os.ReadFile(path)
-	if strings.Contains(string(data), "email") {
-		t.Errorf("expected email removed, got:\n%s", string(data))
+	if strings.Contains(string(data), "bio") {
+		t.Errorf("expected bio removed, got:\n%s", string(data))
 	}
 }
 
 func TestRemoveCategory_DottedCategory(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "me.toml")
-	content := "[identity]\nname = \"Alice\"\n\n[profiles.github]\nusername = \"alice\"\n"
+	content := "[identity]\nname = \"Alice\"\n\n[platforms.github]\nurl = \"https://github.com/alice\"\n"
 	os.WriteFile(path, []byte(content), 0644)
 
-	err := RemoveCategory(path, "profiles.github")
+	err := RemoveCategory(path, "platforms.github")
 	if err != nil {
 		t.Fatalf("RemoveCategory with dotted category failed: %v", err)
 	}
 
 	data, _ := os.ReadFile(path)
-	if strings.Contains(string(data), "profiles.github") {
-		t.Errorf("expected profiles.github removed, got:\n%s", string(data))
+	if strings.Contains(string(data), "platforms.github") {
+		t.Errorf("expected platforms.github removed, got:\n%s", string(data))
 	}
 	if !strings.Contains(string(data), "[identity]") {
 		t.Errorf("expected identity preserved, got:\n%s", string(data))

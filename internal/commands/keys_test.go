@@ -23,7 +23,7 @@ func TestKeys_Table(t *testing.T) {
 	for _, line := range lines {
 		found[strings.TrimSpace(line)] = true
 	}
-	for _, expected := range []string{"identity.name", "identity.aka", "web.github", "academic.orcid"} {
+	for _, expected := range []string{"identity.name", "identity.aka", "web.handle", "academic.orcid"} {
 		if !found[expected] {
 			t.Errorf("expected key path %q in output", expected)
 		}

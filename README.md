@@ -25,7 +25,7 @@ deets init
 # Set some values
 deets set identity.name "Alexander Towell"
 deets set identity.aka '["Alex Towell"]'
-deets set profiles.github.username "queelius"
+deets set platforms.github.url "https://github.com/queelius"
 deets set academic.orcid "0000-0001-6443-9897"
 
 # Or auto-populate from external sources
@@ -35,9 +35,9 @@ deets populate --all             # all available sources
 
 # Get values (great for scripts)
 deets get identity.name               # → Alexander Towell
-deets get profiles.github.username    # → queelius
-deets get profiles.github             # → all GitHub profile fields
-deets get profiles.*.email            # → all platform emails
+deets get platforms.github.url        # → https://github.com/queelius
+deets get platforms.github             # → all GitHub platform fields
+deets get platforms.*.url              # → all platform URLs
 name=$(deets get identity.name)       # pipe-friendly bare output
 ```
 
@@ -57,9 +57,9 @@ When `--format` is not set, output defaults to `table` on a TTY and `json` when 
 
 ```bash
 deets get identity.name               # single value, bare output
-deets get profiles.github             # all fields in a dotted category
-deets get profiles.github.username    # field in a dotted category
-deets get profiles.*.email            # cross-platform glob
+deets get platforms.github             # all fields in a dotted category
+deets get platforms.github.url        # field in a dotted category
+deets get platforms.*.url             # cross-platform glob
 deets get *.orcid                     # find key across all categories
 deets get identity.name --desc        # include field description
 deets get foo.bar --default x         # return "x" if not found
@@ -69,9 +69,9 @@ deets get foo.bar --exists            # exit 0 if found, 2 if not (no output)
 Single exact matches output bare values (pipe-friendly). Multiple matches show a table on TTY, JSON when piped.
 
 Glob patterns supported:
-- `category` or `category.*` — all fields in a category (e.g., `profiles.github`)
-- `profiles.*` — all fields across dotted sub-categories
-- `profiles.*.email` — specific key across dotted sub-categories
+- `category` or `category.*` — all fields in a category (e.g., `platforms.github`)
+- `platforms.*` — all fields across dotted sub-categories
+- `platforms.*.url` — specific key across dotted sub-categories
 - `*.key` — find a key across all categories (e.g., `*.orcid`)
 
 ### Show
@@ -93,8 +93,8 @@ echo "piped" | deets set identity.name    # value from stdin
 cat bio.txt | deets set identity.bio -    # explicit stdin with "-"
 deets rm contact.phone           # remove a field
 deets rm cooking                 # remove entire category
-deets rm profiles.github         # remove a dotted category
-deets rm profiles.github.email   # remove field in dotted category
+deets rm platforms.github         # remove a dotted category
+deets rm platforms.github.bio    # remove field in dotted category
 ```
 
 ### Search
@@ -109,7 +109,7 @@ deets search "towell"            # search keys, values, and descriptions
 deets describe                   # all descriptions
 deets describe identity          # descriptions in category
 deets describe academic.orcid    # single field description
-deets describe profiles.mastodon.handle "Mastodon handle"  # set a description
+deets describe platforms.mastodon.handle "Mastodon handle"  # set a description
 ```
 
 ### Keys
@@ -179,28 +179,32 @@ deets completion bash            # shell completions
 ```toml
 [identity]
 name = "Alexander Towell"
-aka = ["Alex Towell"]
+aka = ["Alex Towell", "queelius"]
 pronouns = "he/him"
 
 [contact]
 email = "lex@metafunctor.com"
+emails = ["lex@metafunctor.com", "queelius@gmail.com"]
 
 [academic]
 orcid = "0000-0001-6443-9897"
 institution = "Southern Illinois University Edwardsville"
 research_interests = ["information retrieval", "Bayesian statistics"]
+degrees = ["MS Computer Science (SIUE, 2015)", "MS Mathematics (SIUE, 2023)"]
 
-[profiles.github]
-username = "queelius"
-email = "queelius@gmail.com"
+[web]
+handle = "queelius"
+domains = ["metafunctor.com"]
+
+[platforms.github]
 url = "https://github.com/queelius"
+name = "Alex Towell"
 
-[profiles.pypi]
-username = "queelius"
-email = "lex@metafunctor.com"
+[platforms.pypi]
+url = "https://pypi.org/user/queelius"
 ```
 
-Any `[category]` with any `key = "value"` is valid. Platform profiles use `[profiles.name]` sections, enabling cross-platform queries like `deets get profiles.*.email`.
+Any `[category]` with any `key = "value"` is valid. Platform entries use `[platforms.name]` sections, enabling cross-platform queries like `deets get platforms.*.url`. Shared identity info (handle, email, name) lives in top-level categories to avoid redundancy.
 
 ### Local Overrides
 

@@ -15,13 +15,13 @@ func TestCategories_Table(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// Test data has: academic, contact, identity, profiles.github, web (alphabetical).
+	// Test data has: academic, contact, identity, platforms.github, web (alphabetical).
 	lines := strings.Split(strings.TrimSpace(stdout), "\n")
 	if len(lines) != 5 {
 		t.Fatalf("expected 5 categories, got %d: %v", len(lines), lines)
 	}
 	// Should be alphabetically sorted.
-	expected := []string{"academic", "contact", "identity", "profiles.github", "web"}
+	expected := []string{"academic", "contact", "identity", "platforms.github", "web"}
 	for i, want := range expected {
 		got := strings.TrimSpace(lines[i])
 		if got != want {

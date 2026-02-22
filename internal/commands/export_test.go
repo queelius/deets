@@ -44,8 +44,8 @@ func TestExport_Env(t *testing.T) {
 	if !strings.Contains(stdout, "DEETS_IDENTITY_NAME=") {
 		t.Error("expected env var format")
 	}
-	if !strings.Contains(stdout, "DEETS_WEB_GITHUB=") {
-		t.Error("expected web github env var")
+	if !strings.Contains(stdout, "DEETS_WEB_HANDLE=") {
+		t.Error("expected web handle env var")
 	}
 }
 

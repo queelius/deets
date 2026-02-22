@@ -684,9 +684,9 @@ func TestGetField_DottedCategory(t *testing.T) {
 			{Name: "identity", Fields: []Field{
 				{Key: "name", Value: "Alice", Category: "identity"},
 			}},
-			{Name: "profiles.github", Fields: []Field{
-				{Key: "username", Value: "alice", Category: "profiles.github"},
-				{Key: "email", Value: "a@gh.com", Category: "profiles.github"},
+			{Name: "platforms.github", Fields: []Field{
+				{Key: "url", Value: "https://github.com/alice", Category: "platforms.github"},
+				{Key: "bio", Value: "Developer", Category: "platforms.github"},
 			}},
 		},
 	}
@@ -696,17 +696,17 @@ func TestGetField_DottedCategory(t *testing.T) {
 		t.Errorf("GetField(identity.name) = %v, %v", f.Value, ok)
 	}
 
-	f, ok = db.GetField("profiles.github.username")
-	if !ok || f.Value != "alice" {
-		t.Errorf("GetField(profiles.github.username) = %v, %v", f.Value, ok)
+	f, ok = db.GetField("platforms.github.url")
+	if !ok || f.Value != "https://github.com/alice" {
+		t.Errorf("GetField(platforms.github.url) = %v, %v", f.Value, ok)
 	}
 
-	f, ok = db.GetField("profiles.github.email")
-	if !ok || f.Value != "a@gh.com" {
-		t.Errorf("GetField(profiles.github.email) = %v, %v", f.Value, ok)
+	f, ok = db.GetField("platforms.github.bio")
+	if !ok || f.Value != "Developer" {
+		t.Errorf("GetField(platforms.github.bio) = %v, %v", f.Value, ok)
 	}
 
-	_, ok = db.GetField("profiles.github.nonexistent")
+	_, ok = db.GetField("platforms.github.nonexistent")
 	if ok {
 		t.Error("expected not found")
 	}
@@ -722,45 +722,45 @@ func TestQuery_DottedCategory(t *testing.T) {
 			{Name: "identity", Fields: []Field{
 				{Key: "name", Value: "Alice", Category: "identity"},
 			}},
-			{Name: "profiles.github", Fields: []Field{
-				{Key: "username", Value: "alice", Category: "profiles.github"},
-				{Key: "email", Value: "a@gh.com", Category: "profiles.github"},
+			{Name: "platforms.github", Fields: []Field{
+				{Key: "url", Value: "https://github.com/alice", Category: "platforms.github"},
+				{Key: "bio", Value: "Developer", Category: "platforms.github"},
 			}},
-			{Name: "profiles.pypi", Fields: []Field{
-				{Key: "username", Value: "alice", Category: "profiles.pypi"},
-				{Key: "email", Value: "a@pypi.com", Category: "profiles.pypi"},
+			{Name: "platforms.pypi", Fields: []Field{
+				{Key: "url", Value: "https://pypi.org/user/alice", Category: "platforms.pypi"},
+				{Key: "name", Value: "Alice", Category: "platforms.pypi"},
 			}},
 		},
 	}
 
-	// "profiles.github" matches as a category → all fields
-	fields := db.Query("profiles.github")
+	// "platforms.github" matches as a category → all fields
+	fields := db.Query("platforms.github")
 	if len(fields) != 2 {
-		t.Fatalf("Query(profiles.github) returned %d fields, want 2", len(fields))
+		t.Fatalf("Query(platforms.github) returned %d fields, want 2", len(fields))
 	}
 
-	// "profiles.github.username" → specific field
-	fields = db.Query("profiles.github.username")
-	if len(fields) != 1 || fields[0].Value != "alice" {
-		t.Errorf("Query(profiles.github.username) = %v", fields)
+	// "platforms.github.url" → specific field
+	fields = db.Query("platforms.github.url")
+	if len(fields) != 1 || fields[0].Value != "https://github.com/alice" {
+		t.Errorf("Query(platforms.github.url) = %v", fields)
 	}
 
-	// "profiles.*.email" → email from both profiles
-	fields = db.Query("profiles.*.email")
+	// "platforms.*.url" → url from both platforms
+	fields = db.Query("platforms.*.url")
 	if len(fields) != 2 {
-		t.Errorf("Query(profiles.*.email) returned %d, want 2", len(fields))
+		t.Errorf("Query(platforms.*.url) returned %d, want 2", len(fields))
 	}
 
-	// "profiles.*" → all profiles categories (all fields)
-	fields = db.Query("profiles.*")
+	// "platforms.*" → all platforms categories (all fields)
+	fields = db.Query("platforms.*")
 	if len(fields) != 4 {
-		t.Errorf("Query(profiles.*) returned %d, want 4", len(fields))
+		t.Errorf("Query(platforms.*) returned %d, want 4", len(fields))
 	}
 
-	// "profiles.*.username" → username from both
-	fields = db.Query("profiles.*.username")
-	if len(fields) != 2 {
-		t.Errorf("Query(profiles.*.username) returned %d, want 2", len(fields))
+	// "platforms.*.name" → name from pypi only (github has bio not matching)
+	fields = db.Query("platforms.*.name")
+	if len(fields) != 1 {
+		t.Errorf("Query(platforms.*.name) returned %d, want 1", len(fields))
 	}
 
 	// "identity" → all identity fields (no-dot category name)

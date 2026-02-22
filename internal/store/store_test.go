@@ -226,8 +226,8 @@ func TestLoadFile_DefaultDescriptionFallback(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "me.toml")
 
-	content := `[profiles.github]
-username = "alice"
+	content := `[platforms.github]
+url = "https://github.com/alice"
 `
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatal(err)
@@ -243,8 +243,8 @@ username = "alice"
 	}
 
 	field := db.Categories[0].Fields[0]
-	if field.Desc != "GitHub username" {
-		t.Errorf("expected default desc 'GitHub username', got %q", field.Desc)
+	if field.Desc != "GitHub profile URL" {
+		t.Errorf("expected default desc 'GitHub profile URL', got %q", field.Desc)
 	}
 }
 
@@ -252,9 +252,9 @@ func TestLoadFile_ExplicitDescOverridesDefault(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "me.toml")
 
-	content := `[profiles.github]
-username = "alice"
-username_desc = "My GitHub handle"
+	content := `[platforms.github]
+url = "https://github.com/alice"
+url_desc = "My GitHub page"
 `
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatal(err)
@@ -266,8 +266,8 @@ username_desc = "My GitHub handle"
 	}
 
 	field := db.Categories[0].Fields[0]
-	if field.Desc != "My GitHub handle" {
-		t.Errorf("expected explicit desc 'My GitHub handle', got %q", field.Desc)
+	if field.Desc != "My GitHub page" {
+		t.Errorf("expected explicit desc 'My GitHub page', got %q", field.Desc)
 	}
 }
 
@@ -459,12 +459,12 @@ func TestLoadFile_NestedTables(t *testing.T) {
 	content := `[identity]
 name = "Alice"
 
-[profiles.github]
-username = "alice"
-email = "alice@gh.com"
+[platforms.github]
+url = "https://github.com/alice"
+bio = "Developer"
 
-[profiles.pypi]
-username = "alice"
+[platforms.pypi]
+url = "https://pypi.org/user/alice"
 `
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatal(err)
@@ -483,23 +483,23 @@ username = "alice"
 		t.Fatalf("expected 3 categories, got %d: %v", len(db.Categories), names)
 	}
 
-	expected := []string{"identity", "profiles.github", "profiles.pypi"}
+	expected := []string{"identity", "platforms.github", "platforms.pypi"}
 	for i, cat := range db.Categories {
 		if cat.Name != expected[i] {
 			t.Errorf("category[%d]: expected %q, got %q", i, expected[i], cat.Name)
 		}
 	}
 
-	// Check profiles.github has 2 fields with correct category
+	// Check platforms.github has 2 fields with correct category
 	ghCat := db.Categories[1]
 	if len(ghCat.Fields) != 2 {
-		t.Fatalf("expected 2 fields in profiles.github, got %d", len(ghCat.Fields))
+		t.Fatalf("expected 2 fields in platforms.github, got %d", len(ghCat.Fields))
 	}
-	// Fields sorted: email, username
-	if ghCat.Fields[0].Key != "email" || ghCat.Fields[0].Category != "profiles.github" {
+	// Fields sorted: bio, url
+	if ghCat.Fields[0].Key != "bio" || ghCat.Fields[0].Category != "platforms.github" {
 		t.Errorf("unexpected field: key=%q cat=%q", ghCat.Fields[0].Key, ghCat.Fields[0].Category)
 	}
-	if ghCat.Fields[1].Key != "username" || ghCat.Fields[1].Value != "alice" {
+	if ghCat.Fields[1].Key != "url" || ghCat.Fields[1].Value != "https://github.com/alice" {
 		t.Errorf("unexpected field: key=%q val=%v", ghCat.Fields[1].Key, ghCat.Fields[1].Value)
 	}
 }
@@ -508,9 +508,9 @@ func TestLoadFile_NestedTablesWithDescs(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "me.toml")
 
-	content := `[profiles.github]
-username = "alice"
-username_desc = "GitHub handle"
+	content := `[platforms.github]
+url = "https://github.com/alice"
+url_desc = "GitHub page"
 `
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatal(err)
@@ -521,15 +521,15 @@ username_desc = "GitHub handle"
 		t.Fatalf("LoadFile: %v", err)
 	}
 
-	if len(db.Categories) != 1 || db.Categories[0].Name != "profiles.github" {
-		t.Fatalf("expected 1 category 'profiles.github', got %v", db.Categories)
+	if len(db.Categories) != 1 || db.Categories[0].Name != "platforms.github" {
+		t.Fatalf("expected 1 category 'platforms.github', got %v", db.Categories)
 	}
 	f := db.Categories[0].Fields[0]
-	if f.Key != "username" {
-		t.Errorf("expected key 'username', got %q", f.Key)
+	if f.Key != "url" {
+		t.Errorf("expected key 'url', got %q", f.Key)
 	}
-	if f.Desc != "GitHub handle" {
-		t.Errorf("expected desc 'GitHub handle', got %q", f.Desc)
+	if f.Desc != "GitHub page" {
+		t.Errorf("expected desc 'GitHub page', got %q", f.Desc)
 	}
 }
 
@@ -543,11 +543,11 @@ name = "Alice"
 [contact]
 email = "alice@example.com"
 
-[profiles.github]
-username = "alice"
+[platforms.github]
+url = "https://github.com/alice"
 
-[profiles.pypi]
-username = "alice"
+[platforms.pypi]
+url = "https://pypi.org/user/alice"
 `
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatal(err)
@@ -558,7 +558,7 @@ username = "alice"
 		t.Fatalf("LoadFile: %v", err)
 	}
 
-	expected := []string{"contact", "identity", "profiles.github", "profiles.pypi"}
+	expected := []string{"contact", "identity", "platforms.github", "platforms.pypi"}
 	if len(db.Categories) != len(expected) {
 		names := make([]string, len(db.Categories))
 		for i, c := range db.Categories {
@@ -607,14 +607,14 @@ key = "deep"
 	}
 }
 
-func TestLoadFile_ProfilesDefaultDescriptions(t *testing.T) {
+func TestLoadFile_PlatformsDefaultDescriptions(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "me.toml")
 
-	content := `[profiles.github]
-username = "alice"
-email = "a@gh.com"
+	content := `[platforms.github]
 url = "https://github.com/alice"
+name = "Alice"
+bio = "Developer"
 `
 	os.WriteFile(path, []byte(content), 0644)
 
@@ -636,13 +636,13 @@ func TestLoadFile_MixedLeafAndSubTable(t *testing.T) {
 	path := filepath.Join(dir, "me.toml")
 
 	// A parent table with both direct leaf fields and sub-tables.
-	// In TOML: [profiles] has a leaf field "default", and [profiles.github]
+	// In TOML: [platforms] has a leaf field "default", and [platforms.github]
 	// has its own fields.
-	content := `[profiles]
+	content := `[platforms]
 default = "github"
 
-[profiles.github]
-username = "alice"
+[platforms.github]
+url = "https://github.com/alice"
 `
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatal(err)
@@ -653,7 +653,7 @@ username = "alice"
 		t.Fatalf("LoadFile: %v", err)
 	}
 
-	expected := []string{"profiles", "profiles.github"}
+	expected := []string{"platforms", "platforms.github"}
 	if len(db.Categories) != len(expected) {
 		names := make([]string, len(db.Categories))
 		for i, c := range db.Categories {
@@ -667,12 +667,12 @@ username = "alice"
 		}
 	}
 
-	// profiles should have "default" field
+	// platforms should have "default" field
 	if db.Categories[0].Fields[0].Key != "default" {
-		t.Errorf("expected profiles field 'default', got %q", db.Categories[0].Fields[0].Key)
+		t.Errorf("expected platforms field 'default', got %q", db.Categories[0].Fields[0].Key)
 	}
-	// profiles.github should have "username" field
-	if db.Categories[1].Fields[0].Key != "username" {
-		t.Errorf("expected profiles.github field 'username', got %q", db.Categories[1].Fields[0].Key)
+	// platforms.github should have "url" field
+	if db.Categories[1].Fields[0].Key != "url" {
+		t.Errorf("expected platforms.github field 'url', got %q", db.Categories[1].Fields[0].Key)
 	}
 }
